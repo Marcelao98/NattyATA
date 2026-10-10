@@ -36,6 +36,8 @@ duas metades compartilham:
 | `fonte.json` | Fonte | `tipo` (`youtube`, `arquivo` ou `gravacao`) e, no YouTube: url, título, canal, duração, data, id, capítulos do autor, descrição |
 | `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
 | `transcricao.txt` | Texto | parágrafos separados por linha em branco |
+| `visual.json` | Visual | só com `--visual`: slides da tela (`eventos`: `tipo`, `inicio`, `fim`, `texto` por OCR, `confianca`, `frame`) |
+| `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
 | `didatico-<tema>.md` | Preceptor | um arquivo por pedido |
 
@@ -78,6 +80,19 @@ Flag `--texto perguntar|legenda|whisper` (padrão `perguntar`) para pular a
 pergunta. Sem terminal interativo, `perguntar` não é permitido: a CLI pede a
 flag explícita em vez de escolher sozinha.
 
+### Visual (opcional, depois do texto)
+
+`--visual nenhum|auto|aula` (padrão `nenhum`: nada de vídeo é baixado). O texto
+sai e é gravado **primeiro**; o visual vem depois, então uma falha nele (sem
+Tesseract, erro do ffmpeg) não perde o texto: a CLI avisa e sai com código 1.
+`aula` faz direto; `auto` mostra um palpite (trocas por minuto, palavras por
+tela, formato) e pergunta, como na legenda (Enter aceita o palpite; sem
+terminal, a CLI pede `aula` ou `nenhum`). URL baixa só a imagem, até 720p
+(480p deixa o texto pequeno demais para o OCR), e o vídeo some depois, como o
+áudio; arquivo de vídeo local é usado direto. Os números do perfil (1 s entre
+quadros, 0,5% de tela mudada, 10x10 de bloco, teto de 300 slides, 8 palavras
+no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
+
 ### Camada de código (`natty_ata/`)
 
 - `fonte.py`: URL do YouTube → `fonte.json`, legendas disponíveis, download
@@ -92,6 +107,19 @@ flag explícita em vez de escolher sozinha.
   relógio pede e completa com silêncio. A captura real é a única parte sem
   teste automático; o resto recebe as entradas por parâmetro. Também junta as
   duas faixas transcritas num texto só, com `falante`.
+- `quadros.py`: vídeo → quadros via ffmpeg: um quadro pequeno em cinza a cada
+  intervalo (em fluxo, nunca vai ao disco) e a extração de um quadro JPG em
+  boa qualidade num horário.
+- `visual.py`: lógica pura do perfil "aula". Acha as trocas de tela comparando
+  cada quadro com o último slide aceito; só aceita a troca depois que a tela
+  estabiliza (espera a animação). Regiões que mexem o tempo todo (câmera do
+  professor, ruído) são ignoradas por uma máscara de movimento por blocos.
+  Junta slides vizinhos com texto quase igual; dá o palpite do perfil.
+- `ocr.py`: Tesseract chamado pelo terminal (sem pytesseract), com a confiança
+  por palavra. Confere programa e idiomas antes de processar o vídeo.
+- `aula.py`: junta `quadros`, `visual` e `ocr`: `detectar` (uma passada),
+  `palpite` (OCR em até 4 slides) e `montar` (todos os slides → `visual.json`
+  e `frames/`).
 - `audio.py`: arquivo → array float32 mono 16 kHz via ffmpeg.
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
 - `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
@@ -144,11 +172,17 @@ Os dois papéis são separados de propósito: um é fiel ao vídeo, o outro é
 livre para ensinar. Misturar os dois num agente só faz o resumo inventar e a
 explicação ficar presa ao texto.
 
-**Limitação conhecida: o que está só na tela.** Aulas de matemática mostram
-fórmulas e gráficos que o professor não fala ("isso aqui vezes isso"). A
-transcrição perde isso. Os agentes registram que o trecho dependia da tela
-em vez de reconstruir a fórmula. Solução futura: capturas do vídeo (ffmpeg)
-nos horários marcados, para um agente que lê imagem.
+**O que está só na tela.** Aulas mostram fórmulas e listas que o professor
+não fala ("isso aqui vezes isso"), e a transcrição perde isso. Com
+`--visual`, o código extrai os slides e lê o texto por OCR (`visual.json`);
+os agentes citam o que o slide mostra, sempre separado do que foi dito, e
+tratam OCR de baixa confiança como duvidoso. **Sem agente novo:** o Escrivão e
+o Preceptor leem o `visual.json` quando existe; sem ele, nada muda. Gráfico
+e imagem não viram texto: continua valendo "estava na tela".
+
+Perfis de visual: `aula` (feito: slides + OCR). Falta o `corte` (vídeo curto,
+com cortes rápidos: poucos quadros para um agente olhar). O palpite do
+`--visual auto` já reconhece esse caso e avisa que ainda não existe.
 
 Agente novo em `.claude/agents/` só aparece depois de reiniciar a sessão do
 Claude Code. Na mesma sessão em que foi criado, chame um agente genérico
@@ -162,7 +196,7 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
 
 - **Lógica pura separada da casca.** `cli.py` só traduz argumentos e imprime.
 - **Testes com dublês.** `unittest`, sem rede, sem modelo, sem ffmpeg, sem
-  yt-dlp reais. Dependências externas entram como parâmetro para o teste trocar.
+  Tesseract, sem yt-dlp reais. Dependências externas entram como parâmetro para o teste trocar.
 - **Nenhum modelo nem mídia no repositório.** Pesos ficam no cache do Hugging
   Face (`HF_HOME` move o cache); `transcricoes/` é ignorada pelo git.
 - **Nenhuma chamada de LLM no pacote Python.** O LLM vive só nos agentes.
@@ -184,6 +218,8 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
 4. Preceptor. **(feito)**
 5. Gravação do áudio do PC (Windows) com duas faixas. **(feito, falta
    confirmar a captura num Windows real)**
+6. Visual, perfil `aula`: slides + OCR (Tesseract) → `visual.json`.
+   **(feito, falta confirmar com vídeo real)** Falta o perfil `corte`.
 
 ## Comandos
 
@@ -191,4 +227,5 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
 python -m unittest discover -s tests
 ata arquivo.opus
 ata gravar --mic --transcrever
+ata "url" --visual auto
 ```

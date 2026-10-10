@@ -22,6 +22,11 @@ sudo apt install ffmpeg           # Linux
 # Deno (recomendado para o YouTube)
 winget install DenoLand.Deno      # Windows
 
+# Tesseract (só para --visual, o texto que aparece na tela)
+# Windows: instalador do UB Mannheim (marque o idioma Portuguese)
+brew install tesseract tesseract-lang                     # macOS
+sudo apt install tesseract-ocr tesseract-ocr-por          # Linux
+
 # projeto
 python -m venv .venv
 .venv\Scripts\activate            # Windows (Linux/macOS: source .venv/bin/activate)
@@ -44,6 +49,35 @@ Cada entrada vira uma pasta em `transcricoes/<nome>/`:
 
 Arquivo local aceita qualquer formato que o ffmpeg abra: `.opus`, `.ogg`,
 `.mp3`, `.m4a`, `.wav`, `.mp4`...
+
+### Visual: o que aparece na tela (slides + OCR)
+
+Aula com slide mostra fórmulas e listas que o professor não fala. Com
+`--visual`, depois do texto a `ata` acha as trocas de tela, lê o texto de cada
+slide com o Tesseract e grava `visual.json` e `frames/` na pasta do vídeo. O
+Escrivão e o Preceptor usam isso quando existe.
+
+```bash
+ata "https://www.youtube.com/watch?v=..." --visual auto   # mostra um palpite e pergunta
+ata "https://www.youtube.com/watch?v=..." --visual aula   # faz direto
+ata aula.mp4 --visual aula                                # vídeo local: não baixa nada
+```
+
+- **`auto`** mostra quantas trocas de tela há por minuto, quantas palavras por
+  tela e o formato, dá um palpite (aula ou não) e pergunta; Enter aceita o
+  palpite. Sem terminal, use `aula` ou `nenhum`.
+- **O texto sai primeiro.** Se o visual falhar (Tesseract não instalado, erro
+  do ffmpeg), o texto já está salvo e a `ata` avisa e sai com código 1.
+- **Vídeo:** de URL baixa só a imagem, até 720p (480p deixa o texto pequeno
+  demais para o OCR), e apaga depois. Peso de 1 hora em 720p: centenas de MB
+  temporários.
+- **Câmera do professor:** regiões que mexem o tempo todo são ignoradas, então
+  o rosto no canto não vira "troca de slide".
+- **`visual.json`:** um slide por linha, com `inicio`, `fim`, `texto`,
+  `confianca` (0 a 100, do OCR) e o `frame`. OCR com confiança baixa é tratado
+  como duvidoso pelos agentes. Gráfico e imagem não viram texto.
+- **Ainda falta** o perfil para vídeo curto com cortes rápidos (TikTok, Shorts).
+  O palpite reconhece esse caso e avisa.
 
 ### Gravar o áudio do PC (Windows)
 
@@ -92,6 +126,7 @@ nomes e termos técnicos; nesse caso, vale o Whisper.
 | `--termos arquivo.txt` | desligado | termos, um por linha (`#` comenta), passados como `hotwords` |
 | `--saida pasta` | `transcricoes/` | onde as pastas são criadas |
 | `--texto` | `perguntar` | YouTube: `legenda`, `whisper` ou `perguntar` (sem terminal interativo, passe `legenda` ou `whisper`) |
+| `--visual` | `nenhum` | `aula` (slides + OCR), `auto` (palpite e pergunta) ou `nenhum`; precisa do Tesseract |
 
 ### Lista de termos (`--termos`)
 

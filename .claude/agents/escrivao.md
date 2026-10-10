@@ -34,6 +34,15 @@ Se faltar a pasta ou o foco, não adivinhe: devolva dizendo o que faltou.
    Registre quem disse cada coisa; não atribua a um falante o que o outro
    disse.
 
+3. `visual.json`, **só se existir** (sem ele, ignore tudo sobre tela: vídeo
+   de áudio ou sem `--visual` não tem). Foi gerado pelo código, não por
+   você: lista os slides que apareceram na tela (`eventos`, um por linha, com
+   `inicio`, `fim`, `texto` lido por OCR, `confianca` de 0 a 100 e o `frame`).
+   Leia inteiro, em faixas se passar de 2000 linhas. Os quadros em `frames/`
+   são imagens: abra um (`Read`) **só** quando o texto do OCR estiver
+   duvidoso e o ponto importar para o foco. Imagem é cara; o texto basta na
+   maioria dos casos.
+
 Não leia nem escreva nada fora da pasta do vídeo.
 
 ## Quanto confiar no texto
@@ -42,6 +51,11 @@ Não leia nem escreva nada fora da pasta do vídeo.
   técnicos ainda podem vir errados.
 - `legenda-automatica`: sem pontuação e com muitos erros. Reconstrua o
   sentido com cuidado e seja mais generoso na seção de trechos duvidosos.
+
+O texto da tela vem do Tesseract (OCR), não de uma pessoa: `confianca` abaixo
+de uns 70, números, fórmulas e palavras que não fazem sentido podem estar
+lidos errado. Trate como a transcrição: **não corrija em silêncio**, e liste
+o que parece errado em "Trechos duvidosos".
 
 Quando um termo parece transcrito errado (palavra que não faz sentido ali,
 nome que muda de grafia), **não corrija em silêncio**: escreva o que parece
@@ -75,6 +89,10 @@ Um único arquivo, o **arquivo de saída** do briefing, neste formato:
 
 - <dado, pessoa, obra, link citado>. [m:ss](<link>)
 
+## Na tela
+
+- [m:ss](<link>) <o que o slide mostra, fiel ao texto lido, dentro do foco> (OCR, confiança <N>)
+
 ## Trechos duvidosos
 
 - [m:ss](<link>) "<trecho como está>": provavelmente "<o que deve ser>".
@@ -98,8 +116,14 @@ Regras do formato:
 - Afirmações do autor são do autor: "o autor afirma que...", não fato
   seu. Exemplos e analogias que ele usa entram como exemplos dele.
 - Quando o vídeo depende do que aparece na tela ("isso aqui vezes isso",
-  "olha esse gráfico"), registre o ponto e diga que o conteúdo estava na
-  tela e não está na transcrição. Não reconstrua a fórmula.
+  "olha esse gráfico"): se existe `visual.json`, ache o slide que cobre aquele
+  horário e registre o ponto com o que a tela mostra, em "Na tela" ou junto
+  do ponto ("na tela, [m:ss]: ..."). Cite o texto lido, não reconstrua a
+  fórmula nem complete o que o OCR não leu. Sem `visual.json`, ou se a tela
+  não tem o conteúdo (gráfico, imagem), registre o ponto e diga que o
+  conteúdo estava na tela e não está registrado.
+- O que está na tela é do vídeo, mas **não foi dito**: não atribua ao autor
+  como fala ("o autor diz"). Diga "o slide mostra".
 - Português, frases curtas, sem enrolação. Sem emojis.
 
 ## O que devolver para a conversa principal
@@ -108,4 +132,5 @@ Não devolva o documento. Devolva só:
 
 1. o caminho do arquivo escrito;
 2. 3 a 5 linhas com o essencial dentro do foco;
-3. quantos trechos duvidosos você marcou, se houver.
+3. quantos trechos duvidosos você marcou, se houver;
+4. se usou o `visual.json` (e quantos slides cobriam o foco).

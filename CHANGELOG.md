@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.0 — 2026-10-10
+
+Visual, perfil "aula": slides + OCR.
+
+- `--visual nenhum|auto|aula` (padrão `nenhum`). Depois do texto, acha as
+  trocas de tela do vídeo, lê cada slide com o Tesseract e grava `visual.json`
+  (um slide por linha: horário, texto, confiança do OCR, quadro) e `frames/`.
+- `auto` mostra um palpite (trocas por minuto, palavras por tela, formato) e
+  pergunta, como na legenda. Sem terminal, pede `aula` ou `nenhum`.
+- `visual.py`: troca de tela por comparação de quadros (um por segundo), com
+  espera de estabilização (animação) e **máscara de movimento por blocos**
+  para a câmera do professor não virar "troca". `quadros.py`: ffmpeg.
+  `ocr.py`: Tesseract pelo terminal. `aula.py`: junta tudo.
+- `fonte.baixar_video`: só imagem, até 720p; arquivo de vídeo local é usado
+  direto. Falha no visual não perde o texto (já salvo): avisa e sai com 1.
+- O Escrivão e o Preceptor leem o `visual.json` quando existe (sem agente
+  novo): citam o que o slide mostra, separado do que foi dito, e tratam OCR de
+  baixa confiança como duvidoso.
+- Achado no teste com ffmpeg e Tesseract reais: trocar o texto de um slide de
+  fundo branco muda só 1% a 2% dos pixels, então o limiar ficou em 0,5%, e a
+  câmera passou a ser tratada pela máscara (por bloco: por pixel não pegava).
+- Os números (1 s, 0,5%, blocos de 10x10, 300 slides, 8 palavras no palpite)
+  foram medidos só em vídeo sintético. Confirmar com vídeo real.
+- Ainda falta o perfil `corte` (vídeo curto com cortes rápidos).
+
 ## 0.6.0 — 2026-10-10
 
 Gravação do áudio do PC (Windows).

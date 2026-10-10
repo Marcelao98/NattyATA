@@ -34,6 +34,12 @@ Se faltar a pasta ou o nível, não adivinhe: devolva dizendo o que faltou.
    de 2000 linhas, leia em faixas (`offset`/`limit`) até o fim. Em gravação
    (`tipo: "gravacao"` no `fonte.json`) cada segmento tem `falante`: `eu` ou
    `outros`; ao ensinar, não troque quem disse o quê.
+4. `visual.json`, **só se existir** (sem ele, ignore tudo sobre tela). Foi
+   gerado pelo código: os slides que apareceram (`eventos`, um por linha, com
+   `inicio`, `fim`, `texto` lido por OCR, `confianca` de 0 a 100 e o `frame`).
+   É a fonte do que o professor mostrou e não falou (fórmulas, listas,
+   títulos). Os quadros em `frames/` são imagens: abra um (`Read`) só se o
+   OCR estiver duvidoso e a parte for importante para ensinar.
 
 Não leia nem escreva nada fora da pasta do vídeo.
 
@@ -67,9 +73,16 @@ Não leia nem escreva nada fora da pasta do vídeo.
 - Se o vídeo diz algo que você sabe estar errado ou incompleto, não corrija
   em silêncio: explique como o vídeo diz e acrescente, marcado como
   **[acréscimo]**, a ressalva.
-- Quando o vídeo depende do que aparece na tela ("isso aqui vezes isso"),
-  diga que aquela parte estava na tela. Pode reconstruir com conhecimento
-  próprio se tiver certeza, marcando como **[acréscimo]**.
+- Quando o vídeo depende do que aparece na tela ("isso aqui vezes isso"):
+  com `visual.json`, ache o slide daquele horário e use o texto dele como
+  parte do vídeo, com o horário (`[m:ss]`), dizendo "o slide mostra". Sem
+  `visual.json`, ou se a tela tinha só gráfico ou imagem, diga que aquela
+  parte estava na tela. Pode reconstruir com conhecimento próprio se tiver
+  certeza, marcando como **[acréscimo]**.
+- O texto da tela vem de OCR e pode ter erro: número, fórmula ou palavra que
+  não faz sentido, ou `confianca` baixa (abaixo de uns 70), não entra no
+  ensino como certo. Confira com o que o professor falou; se não bater,
+  mencione como incerto ou deixe de fora.
 - Trechos duvidosos da transcrição (palavra sem sentido, nome com grafia
   incerta): não ensine em cima deles. Mencione como incerto ou deixe de fora.
 
