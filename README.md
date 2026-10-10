@@ -95,9 +95,34 @@ ata gravacoes/2026-10-10_14-30        # transcreve depois uma gravação guardad
 
 Cada faixa vira um `.wav` de 16 kHz mono (uns 115 MB por hora) em
 `gravacoes/AAAA-MM-DD_HH-MM/`: `sistema.wav` e, com `--mic`, `microfone.wav`.
-Com as duas faixas o texto sai com quem falou: `Outros:` (o som do PC) e
-`Eu:` (o microfone), e cada segmento do `transcricao.json` ganha `falante`.
+Com as duas faixas a pasta do vídeo ganha:
 
+- `transcricao-outros.txt` e `transcricao-eu.txt`: um canal cada, com o horário
+  (`[mm:ss]`) no começo de cada parágrafo;
+- `transcricao.txt`: a linha do tempo dos dois, com os parágrafos já montados
+  (`[mm:ss] Outros: ...` / `[mm:ss] Eu: ...`). Cada canal é montado sozinho,
+  então uma fala sua no meio não parte a frase da outra pessoa;
+- `transcricao.json`: um trecho por linha, com `falante` (`outros` ou `eu`).
+
+Em gravação o início e o fim de cada trecho vêm da primeira e da última
+palavra (`--horario-por-palavra`, ligado só aqui por padrão). Custa um pouco
+mais de tempo, mas evita trechos curtos com horário de silêncio.
+
+- **Pontuação do microfone (experimental):** o canal `Eu:` às vezes sai em
+  trechos curtos e sem ponto final. Pela leitura do faster-whisper 1.2.1, o
+  filtro de voz corta a fala a cada pausa de 160 ms e cada pedaço curto é
+  decodificado com pouco contexto. Não deu para validar sem áudio real, então
+  `--vad-silencio-ms` fica desligado. Para testar na sua gravação (guardada
+  com `--manter-audio`), compare as duas saídas:
+
+  ```bash
+  ata gravacoes/2026-10-10_14-30 --saida teste/padrao
+  ata gravacoes/2026-10-10_14-30 --saida teste/vad --vad-silencio-ms 600
+  ```
+
+  e leia o `transcricao-eu.txt` de cada uma. Se melhorar, o valor vira padrão
+  da gravação em outro PR. (`initial_prompt` não resolve: com os parâmetros
+  provados, o faster-whisper só o aplica na primeira janela.)
 - **Silêncio:** o Windows não entrega áudio enquanto nada toca. A gravação
   segue o relógio e completa com silêncio, então os horários continuam
   certos. Se uma faixa ficar quase muda, a `ata` avisa no fim.
@@ -123,7 +148,9 @@ nomes e termos técnicos; nesse caso, vale o Whisper.
 |---|---|---|
 | `--modelo` | `large-v3-turbo` | modelo do faster-whisper (`small`, `base`... se a RAM apertar) |
 | `--lang` | `pt` | idioma; `auto` usa o idioma do vídeo ou deixa o Whisper detectar (gerou alucinações em outros idiomas, por isso não é o padrão) |
-| `--termos arquivo.txt` | desligado | termos, um por linha (`#` comenta), passados como `hotwords` |
+| `--termos a.txt [b.txt ...]` | desligado | um ou mais arquivos de termos, um por linha (`#` comenta), passados como `hotwords`. O limite de ~223 tokens vale para a soma |
+| `--horario-por-palavra` | `auto` | ajusta o horário de cada trecho à primeira e à última palavra. `auto` liga só em gravação; `sim` liga sempre; `nao` desliga |
+| `--vad-silencio-ms MS` | desligado | experimental: pausa mínima que corta a fala no filtro de voz (o padrão do faster-whisper é 160). Veja abaixo |
 | `--saida pasta` | `transcricoes/` | onde as pastas são criadas |
 | `--texto` | `perguntar` | YouTube: `legenda`, `whisper` ou `perguntar` (sem terminal interativo, passe `legenda` ou `whisper`) |
 | `--visual` | `nenhum` | `aula` (slides + OCR), `auto` (palpite e pergunta) ou `nenhum`; precisa do Tesseract |
@@ -135,6 +162,16 @@ nomes próprios. Há uma pronta para mercado financeiro:
 
 ```bash
 ata "https://www.youtube.com/watch?v=..." --texto whisper --termos termos/mercado-financeiro.txt
+```
+
+Listas prontas em `termos/`: `mercado-financeiro.txt`, `tecnologia-ia.txt` (IA,
+Claude Code, ChatGPT, GitHub, TikTok...) e `girias-brasil.txt` (mano, sacou, tá
+ligado, rolê, paia...). Dá para usar mais de uma, e a `ata` junta sem repetir
+termo e avisa se a soma passar do limite. Ponha a entrada **antes** de
+`--termos` (ou separe com `--`):
+
+```bash
+ata gravacoes/2026-10-10_14-30 --termos termos/tecnologia-ia.txt termos/girias-brasil.txt
 ```
 
 O faster-whisper coloca a lista como "texto anterior" em toda janela de 30 s,
