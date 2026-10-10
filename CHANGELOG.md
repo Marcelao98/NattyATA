@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0 — 2026-10-10
+
+Gravação do áudio do PC (Windows).
+
+- `gravacao.py` e `ata gravar`: grava o som do PC (loopback WASAPI via
+  PyAudioWPatch, extra `.[gravacao]`) e, com `--mic`, o microfone em outra
+  faixa. Cada faixa é um `.wav` de 16 kHz mono em `gravacoes/AAAA-MM-DD_HH-MM/`.
+- A linha do tempo segue o relógio: quando o Windows não entrega áudio
+  (silêncio), a faixa é completada com silêncio, e os horários continuam certos.
+- `--transcrever` transcreve ao parar; `ata <pasta-da-gravacao>` transcreve
+  depois. As duas faixas viram um texto só, intercalado por horário, com
+  `falante` (`eu` / `outros`) em cada segmento e `Eu:` / `Outros:` no `.txt`.
+- Depois de transcrever, pergunta se apaga os `.wav` (padrão: guardar);
+  `--apagar-audio` e `--manter-audio` pulam a pergunta. Só apaga os `.wav`
+  que a própria `ata` criou.
+- Aviso quando uma faixa fica quase muda e lembrete de consentimento ao começar.
+- `Segmento` ganha `falante` (opcional; fora de gravação nada muda nos arquivos).
+- Os agentes passam a registrar quem disse cada coisa quando há `falante`.
+- A captura real não tem teste automático (precisa de placa de som no
+  Windows): confirmar com `ata gravar --duracao 5`.
+
 ## 0.5.0 — 2026-10-10
 
 Passo 4: o Preceptor.

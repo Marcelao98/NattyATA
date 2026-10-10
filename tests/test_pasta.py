@@ -34,6 +34,15 @@ class TestPasta(unittest.TestCase):
             linhas = (destino / "transcricao.json").read_text(encoding="utf-8").splitlines()
             self.assertIn('    {"inicio": 2.5, "fim": 4.0, "texto": "Tudo bem?"},', linhas)
 
+    def test_falante_so_aparece_quando_existe(self):
+        resultado = Resultado(fonte="g", duracao_s=5.0, modelo="m", idioma="pt",
+                              segmentos=[Segmento(0.0, 1.0, "oi", "eu"), Segmento(2.0, 3.0, "olá")])
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta.gravar(Path(tmp), {"tipo": "gravacao"}, resultado)
+            segs = json.loads((Path(tmp) / "transcricao.json").read_text(encoding="utf-8"))["segmentos"]
+        self.assertEqual(segs[0], {"inicio": 0.0, "fim": 1.0, "texto": "oi", "falante": "eu"})
+        self.assertEqual(segs[1], {"inicio": 2.0, "fim": 3.0, "texto": "olá"})
+
     def test_gravar_sem_segmentos_continua_json_valido(self):
         resultado = Resultado(fonte="f", duracao_s=0.0, modelo=None, idioma="pt")
         with tempfile.TemporaryDirectory() as tmp:

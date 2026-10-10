@@ -45,6 +45,35 @@ Cada entrada vira uma pasta em `transcricoes/<nome>/`:
 Arquivo local aceita qualquer formato que o ffmpeg abra: `.opus`, `.ogg`,
 `.mp3`, `.m4a`, `.wav`, `.mp4`...
 
+### Gravar o áudio do PC (Windows)
+
+Grava o que sai nas caixas (reunião no Meet/Zoom/Teams, aula, live) e,
+com `--mic`, o seu microfone em outra faixa:
+
+```bash
+pip install -e ".[gravacao]"          # uma vez: a biblioteca de captura (só Windows)
+
+ata gravar --duracao 5                # teste rápido: grava 5 s, deixe algo tocando
+ata gravar                            # grava o som do PC até Ctrl+C
+ata gravar --mic --transcrever        # PC + microfone; ao parar, já transcreve
+ata gravacoes/2026-10-10_14-30        # transcreve depois uma gravação guardada
+```
+
+Cada faixa vira um `.wav` de 16 kHz mono (uns 115 MB por hora) em
+`gravacoes/AAAA-MM-DD_HH-MM/`: `sistema.wav` e, com `--mic`, `microfone.wav`.
+Com as duas faixas o texto sai com quem falou: `Outros:` (o som do PC) e
+`Eu:` (o microfone), e cada segmento do `transcricao.json` ganha `falante`.
+
+- **Silêncio:** o Windows não entrega áudio enquanto nada toca. A gravação
+  segue o relógio e completa com silêncio, então os horários continuam
+  certos. Se uma faixa ficar quase muda, a `ata` avisa no fim.
+- **O áudio:** depois de transcrever, a `ata` pergunta se apaga os `.wav`
+  (o padrão é guardar). `--apagar-audio` ou `--manter-audio` pulam a pergunta.
+- **Dispositivo:** usa o alto-falante e o microfone padrão do Windows. Para
+  gravar outro, troque o padrão nas configurações de som.
+- **Consentimento:** gravar uma conversa sem avisar os outros participantes
+  pode ser ilegal onde você mora. A `ata` lembra disso ao começar.
+
 ### YouTube: legenda primeiro
 
 Se o vídeo tem legenda no idioma pedido (a manual do autor antes da

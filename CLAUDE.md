@@ -33,8 +33,8 @@ duas metades compartilham:
 
 | Arquivo | Quem escreve | Conteúdo |
 |---|---|---|
-| `fonte.json` | Fonte | url, título, canal, duração, data, id, capítulos do autor, descrição |
-| `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma) + segmentos `{inicio, fim, texto}`, um por linha |
+| `fonte.json` | Fonte | `tipo` (`youtube`, `arquivo` ou `gravacao`) e, no YouTube: url, título, canal, duração, data, id, capítulos do autor, descrição |
+| `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
 | `transcricao.txt` | Texto | parágrafos separados por linha em branco |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
 | `didatico-<tema>.md` | Preceptor | um arquivo por pedido |
@@ -42,6 +42,12 @@ duas metades compartilham:
 `origem` diz de onde veio o texto: `legenda-manual`, `legenda-automatica` ou
 `whisper`. Os agentes leem esse campo para saber o quanto confiar em nomes e
 termos técnicos.
+
+`falante` só existe em gravação com duas faixas: `eu` (microfone) ou
+`outros` (som do PC). É opcional: fonte sem ele (YouTube, arquivo) continua
+igual, e os segmentos das duas faixas ficam intercalados por horário no mesmo
+arquivo. O `transcricao.txt` abre parágrafo a cada troca de falante, com
+`Eu:` ou `Outros:` na frente.
 
 O áudio baixado é temporário e apagado depois da transcrição (não guardar
 mídia). Os agentes citam trechos pelo horário (`[12:34]`), que vem do
@@ -79,12 +85,21 @@ flag explícita em vez de escolher sozinha.
 - `legenda.py`: legenda (.vtt) → segmentos; escolha manual × automática;
   amostras e indicadores para o usuário julgar. Lógica pura, sem perguntar
   nada (quem pergunta é a CLI).
+- `gravacao.py`: grava o som do PC (loopback WASAPI, PyAudioWPatch, só
+  Windows) e o microfone em `.wav` de 16 kHz mono, um por faixa, em
+  `gravacoes/AAAA-MM-DD_HH-MM/`. A linha do tempo vem do relógio, não do dado
+  (o loopback não entrega nada em silêncio): cada passo escreve o que o
+  relógio pede e completa com silêncio. A captura real é a única parte sem
+  teste automático; o resto recebe as entradas por parâmetro. Também junta as
+  duas faixas transcritas num texto só, com `falante`.
 - `audio.py`: arquivo → array float32 mono 16 kHz via ffmpeg.
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
 - `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
   esses trechos sem os termos.
 - `texto.py`: segmentos → parágrafos.
-- `cli.py`: casca fina. `ata <url-ou-arquivo>` produz a pasta do vídeo.
+- `cli.py`: casca fina. `ata <url-arquivo-ou-pasta-de-gravacao>` produz a pasta
+  do vídeo; `ata gravar` grava (e com `--transcrever` já transcreve). Depois de
+  transcrever uma gravação, pergunta se apaga os `.wav` (padrão: guardar).
 
 ### Camada de agentes (`.claude/agents/`)
 
@@ -167,10 +182,13 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
    Whisper como alternativa; pasta do vídeo, `transcricao.json`.
 3. Escrivão; capítulos e descrição no `fonte.json`. **(feito)**
 4. Preceptor. **(feito)**
+5. Gravação do áudio do PC (Windows) com duas faixas. **(feito, falta
+   confirmar a captura num Windows real)**
 
 ## Comandos
 
 ```bash
 python -m unittest discover -s tests
 ata arquivo.opus
+ata gravar --mic --transcrever
 ```

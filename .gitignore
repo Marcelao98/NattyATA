@@ -3,3 +3,4 @@ __pycache__/
 *.egg-info/
 transcricoes/
 .env
+gravacoes/

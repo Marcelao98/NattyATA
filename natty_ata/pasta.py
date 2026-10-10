@@ -35,7 +35,9 @@ def _transcricao_json(resultado) -> str:
         "trechos_refeitos": resultado.refeitos,
     }
     linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
-    segmentos = [f"    {json.dumps(asdict(s), ensure_ascii=False)}" for s in resultado.segmentos]
+    # `falante` só aparece quando existe (gravação com duas faixas).
+    dados = [{k: v for k, v in asdict(s).items() if k != "falante" or v is not None} for s in resultado.segmentos]
+    segmentos = [f"    {json.dumps(d, ensure_ascii=False)}" for d in dados]
     linhas.append('  "segmentos": [')
     if segmentos:
         linhas.append(",\n".join(segmentos))

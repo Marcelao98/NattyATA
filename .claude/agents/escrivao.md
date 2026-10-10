@@ -29,6 +29,10 @@ Se faltar a pasta ou o foco, não adivinhe: devolva dizendo o que faltou.
    segmento por linha (`inicio`, `fim` em segundos, `texto`). É daqui que
    saem os horários. Se o arquivo tiver mais de 2000 linhas, leia em faixas
    (`offset`/`limit`) até o fim. Nunca pare no meio de uma transcrição.
+   Em gravação (`fonte.json` com `tipo: "gravacao"`) cada segmento tem
+   também `falante`: `eu` (o dono do microfone) ou `outros` (o som do PC).
+   Registre quem disse cada coisa; não atribua a um falante o que o outro
+   disse.
 
 Não leia nem escreva nada fora da pasta do vídeo.
 

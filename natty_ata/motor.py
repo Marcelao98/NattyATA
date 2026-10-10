@@ -41,6 +41,8 @@ class Segmento:
     inicio: float
     fim: float
     texto: str
+    # Só em gravação com duas faixas: "eu" (microfone) ou "outros" (som do PC).
+    falante: str | None = None
 
 
 @dataclass

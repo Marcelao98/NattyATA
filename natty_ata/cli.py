@@ -7,10 +7,13 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import fonte, legenda, motor, pasta
+from . import fonte, gravacao, legenda, motor, pasta
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 TEXTO_ESCOLHAS = ("perguntar", "legenda", "whisper")
+
+AVISO_CONSENTIMENTO = ("Aviso: gravar uma conversa sem avisar os outros participantes pode ser ilegal "
+                       "onde você mora. Avise quem estiver na gravação.")
 
 
 class Erro(Exception):
@@ -28,13 +31,24 @@ def _mostrar_progresso(atual: float, total: float) -> None:
     print(f"\r  {porcento:3d}%  {_relogio(atual)} / {_relogio(total)}", end="", flush=True)
 
 
-def _argumentos(argv):
-    p = argparse.ArgumentParser(prog="ata", description="Transcreve um vídeo do YouTube ou um arquivo de áudio/vídeo.")
-    p.add_argument("entrada", help="URL do YouTube ou arquivo (.opus, .ogg, .mp3, .m4a, .wav, .mp4...)")
+def _opcoes_comuns(p) -> None:
+    """Opções que `ata` e `ata gravar` compartilham (o que o Whisper e a pasta de saída precisam)."""
     p.add_argument("--modelo", default=motor.MODELO_PADRAO, help=f"modelo do faster-whisper (padrão: {motor.MODELO_PADRAO})")
     p.add_argument("--lang", default=motor.IDIOMA_PADRAO, help="idioma (padrão: pt; 'auto' usa o do vídeo ou detecta)")
     p.add_argument("--termos", type=Path, help="arquivo .txt com termos, um por linha (vira hotwords do Whisper)")
     p.add_argument("--saida", type=Path, default=Path("transcricoes"), help="pasta de saída (padrão: transcricoes/)")
+    p.add_argument("--apagar-audio", dest="apagar_audio", action="store_true", default=None,
+                   help="gravação: apaga os .wav depois de transcrever, sem perguntar")
+    p.add_argument("--manter-audio", dest="apagar_audio", action="store_false", default=None,
+                   help="gravação: guarda os .wav depois de transcrever, sem perguntar")
+
+
+def _argumentos(argv):
+    p = argparse.ArgumentParser(prog="ata", description="Transcreve um vídeo do YouTube, um arquivo de áudio/vídeo "
+                                "ou uma gravação. Para gravar o áudio do PC: ata gravar --help.")
+    p.add_argument("entrada", help="URL do YouTube, arquivo (.opus, .ogg, .mp3, .m4a, .wav, .mp4...) "
+                                   "ou pasta de uma gravação (gravacoes/AAAA-MM-DD_HH-MM)")
+    _opcoes_comuns(p)
     p.add_argument("--texto", choices=TEXTO_ESCOLHAS, default="perguntar",
                    help="YouTube: usar a legenda, o Whisper, ou perguntar depois de mostrar trechos (padrão)")
     return p.parse_args(argv)
@@ -140,8 +154,50 @@ def _do_youtube(args):
         raise Erro(f"YouTube: {e}") from e
 
 
+def _do_gravacao(args, pasta_audio: Path):
+    """Pasta de gravação (sistema.wav e/ou microfone.wav) -> um texto só, com `falante`."""
+    faixas = gravacao.faixas_na_pasta(pasta_audio)
+    if not faixas:
+        raise Erro(f"não achei sistema.wav nem microfone.wav em {pasta_audio}")
+    idioma = None if args.lang == "auto" else args.lang
+    resultados = {}
+    for nome, caminho in faixas.items():
+        print(f"Faixa '{nome}'...")
+        resultados[nome] = _whisper(caminho, args, idioma)
+    resultado = gravacao.juntar_faixas(resultados)
+    dados = {"tipo": "gravacao", "titulo": f"Gravação {pasta_audio.name}", "data": pasta_audio.name,
+             "duracao_s": resultado.duracao_s, "faixas": list(faixas), "falantes": gravacao.FALANTES}
+    return args.saida / pasta.slug(f"gravacao {pasta_audio.name}"), dados, resultado
+
+
+def _apagar_audio(args, pasta_audio: Path) -> None:
+    """Depois que o texto foi gravado: pergunta se apaga os .wav (padrão: guardar)."""
+    arquivos = list(gravacao.faixas_na_pasta(pasta_audio).values())
+    decisao = args.apagar_audio
+    if decisao is None:
+        if not sys.stdin.isatty():
+            print(f"Áudio guardado em {pasta_audio} (use --apagar-audio para apagar).")
+            return
+        try:
+            decisao = input("Apagar os áudios gravados? [s/N] ").strip().lower() in ("s", "sim", "y", "yes")
+        except EOFError:
+            decisao = False
+    if not decisao:
+        print(f"Áudio guardado em {pasta_audio}.")
+        return
+    for arquivo in arquivos:
+        arquivo.unlink()
+    try:
+        pasta_audio.rmdir()  # só se ficou vazia: nunca apaga o que não é nosso
+    except OSError:
+        pass
+    print("Áudio apagado.")
+
+
 def _do_arquivo(args):
     caminho = Path(args.entrada)
+    if caminho.is_dir():
+        return _do_gravacao(args, caminho)
     if not caminho.is_file():
         raise Erro(f"arquivo não encontrado: {caminho}")
     print(f"Transcrevendo {caminho.name}...")
@@ -151,12 +207,58 @@ def _do_arquivo(args):
     return args.saida / pasta.slug(caminho.stem), dados, resultado
 
 
-def main(argv=None) -> int:
-    # Título com emoji num terminal cp1252 não pode derrubar o programa.
-    for fluxo in (sys.stdout, sys.stderr):
-        if hasattr(fluxo, "reconfigure"):
-            fluxo.reconfigure(errors="replace")
-    args = _argumentos(argv)
+# --- Gravação ----------------------------------------------------------------
+
+def _argumentos_gravar(argv):
+    p = argparse.ArgumentParser(
+        prog="ata gravar",
+        description="Grava o áudio do PC (Windows) até Ctrl+C. Com --mic grava também o microfone, "
+                    "em outra faixa. Cada faixa vira um .wav em gravacoes/AAAA-MM-DD_HH-MM/.")
+    p.add_argument("--mic", action="store_true", help="grava também o microfone (faixa separada: 'eu')")
+    p.add_argument("--transcrever", action="store_true", help="ao parar, já transcreve e cria a pasta do vídeo")
+    p.add_argument("--duracao", type=float, metavar="SEGUNDOS", help="para sozinho depois desse tempo (bom para testar: 5)")
+    p.add_argument("--gravacoes", type=Path, default=Path("gravacoes"), help="onde guardar os .wav (padrão: gravacoes/)")
+    _opcoes_comuns(p)
+    return p.parse_args(argv)
+
+
+def _barra(pico: float) -> str:
+    cheio = min(8, int(pico * 24))
+    return "#" * cheio + "." * (8 - cheio)
+
+
+def _mostrar_gravando(decorrido: float, niveis: dict) -> None:
+    faixas = "  ".join(f"{nome} [{_barra(p)}]" for nome, p in niveis.items())
+    print(f"\r  {_relogio(decorrido)}  {faixas}  ", end="", flush=True)
+
+
+def _main_gravar(argv) -> int:
+    args = _argumentos_gravar(argv)
+    print(AVISO_CONSENTIMENTO)
+    try:
+        entradas = gravacao.abrir_entradas(microfone=args.mic)
+        for e in entradas:
+            print(f"  {e.nome}: {getattr(e, 'descricao', '')}")
+        destino = gravacao.pasta_nova(args.gravacoes, time.strftime("%Y-%m-%d_%H-%M"))
+        print("Gravando. Ctrl+C para parar." if args.duracao is None else f"Gravando por {args.duracao:g}s.")
+        resultado = gravacao.gravar(entradas, destino, duracao_max=args.duracao, progresso=_mostrar_gravando)
+    except gravacao.ErroGravacao as e:
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    print(f"\nGravado: {_relogio(resultado.duracao_s)} em {resultado.pasta}")
+    for nome in resultado.faixas_mudas():
+        print(f"Aviso: a faixa '{nome}' ficou quase muda. Era pra ter som nela?")
+    if not args.transcrever:
+        print(f"Para transcrever depois: ata {resultado.pasta}")
+        return 0
+    args.entrada = str(resultado.pasta)
+    return _executar(args)
+
+
+# --- Entrada principal -------------------------------------------------------
+
+def _executar(args) -> int:
+    """Produz a pasta do vídeo para `args.entrada` (URL, arquivo ou pasta de gravação)."""
     comeco = time.perf_counter()
     try:
         destino, dados_fonte, resultado = (_do_youtube if fonte.eh_url(args.entrada) else _do_arquivo)(args)
@@ -165,8 +267,21 @@ def main(argv=None) -> int:
         return 1
     txt = pasta.gravar(destino, dados_fonte, resultado)
     gasto = time.perf_counter() - comeco
-    print(f"Pronto em {_relogio(gasto)} (texto de {resultado.origem}, {resultado.duracao_s:.0f}s de vídeo): {txt.parent}")
+    print(f"Pronto em {_relogio(gasto)} (texto de {resultado.origem}, {resultado.duracao_s:.0f}s de áudio): {txt.parent}")
+    if dados_fonte.get("tipo") == "gravacao":
+        _apagar_audio(args, Path(args.entrada))
     return 0
+
+
+def main(argv=None) -> int:
+    # Título com emoji num terminal cp1252 não pode derrubar o programa.
+    for fluxo in (sys.stdout, sys.stderr):
+        if hasattr(fluxo, "reconfigure"):
+            fluxo.reconfigure(errors="replace")
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] == "gravar":
+        return _main_gravar(argv[1:])
+    return _executar(_argumentos(argv))
 
 
 if __name__ == "__main__":

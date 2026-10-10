@@ -31,7 +31,9 @@ Se faltar a pasta ou o nível, não adivinhe: devolva dizendo o que faltou.
    antes de afirmar algo que vai ensinar.
 3. `transcricao.json`: o cabeçalho diz a `origem` do texto; depois vem um
    segmento por linha (`inicio`, `fim` em segundos, `texto`). Se tiver mais
-   de 2000 linhas, leia em faixas (`offset`/`limit`) até o fim.
+   de 2000 linhas, leia em faixas (`offset`/`limit`) até o fim. Em gravação
+   (`tipo: "gravacao"` no `fonte.json`) cada segmento tem `falante`: `eu` ou
+   `outros`; ao ensinar, não troque quem disse o quê.
 
 Não leia nem escreva nada fora da pasta do vídeo.
 

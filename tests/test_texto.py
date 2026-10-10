@@ -27,6 +27,17 @@ class TestParagrafos(unittest.TestCase):
         segs = [Segmento(0.0, 1.0, "a"), Segmento(1.2, 1.5, "  "), Segmento(1.6, 2.0, "b")]
         self.assertEqual(juntar_em_paragrafos(segs), ["a b"])
 
+    def test_falante_abre_paragrafo_com_rotulo(self):
+        segs = [
+            Segmento(0.0, 2.0, "Bom dia.", "outros"), Segmento(2.2, 4.0, "Vamos começar.", "outros"),
+            Segmento(4.5, 5.5, "Bom dia!", "eu"), Segmento(6.0, 7.0, "Certo.", "outros"),
+        ]
+        self.assertEqual(juntar_em_paragrafos(segs),
+                         ["Outros: Bom dia. Vamos começar.", "Eu: Bom dia!", "Outros: Certo."])
+
+    def test_sem_falante_nao_ganha_rotulo(self):
+        self.assertEqual(juntar_em_paragrafos([Segmento(0.0, 1.0, "oi")]), ["oi"])
+
     def test_formatar_com_linha_em_branco(self):
         self.assertEqual(formatar(["um", "dois"]), "um\n\ndois\n")
         self.assertEqual(formatar([]), "")
