@@ -81,6 +81,8 @@ flag explícita em vez de escolher sozinha.
   nada (quem pergunta é a CLI).
 - `audio.py`: arquivo → array float32 mono 16 kHz via ffmpeg.
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
+- `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
+  esses trechos sem os termos.
 - `texto.py`: segmentos → parágrafos.
 - `cli.py`: casca fina. `ata <url-ou-arquivo>` produz a pasta do vídeo.
 
@@ -148,6 +150,10 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
 - **Parâmetros provados na sessão real não mudam sem motivo:** `language="pt"`,
   `vad_filter=True`, `condition_on_previous_text=False`, `hotwords` desligado
   por padrão, áudio passado como array (nunca o caminho).
+- **Com `hotwords`, sempre a proteção contra loop** (`repeticao.py`): detecta
+  e refaz sem os termos só os trechos suspeitos. Não usar `repetition_penalty`
+  nem `no_repeat_ngram_size` para isso: penalizam tokens já vistos, o que
+  inclui os próprios termos, e bloqueiam repetições legítimas da fala.
 - Código, comentários, mensagens e agentes em português.
 
 ## Roteiro

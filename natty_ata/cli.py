@@ -56,6 +56,12 @@ def _whisper(caminho, args, idioma):
     except (FileNotFoundError, FfmpegAusente, ErroDeDecodificacao) as e:
         raise Erro(str(e)) from e
     print()
+    for aviso in resultado.avisos:
+        print(f"Aviso: {aviso}")
+    if resultado.refeitos:
+        print(f"{len(resultado.refeitos)} trecho(s) com sinal de loop refeito(s) sem os termos:")
+        for r in resultado.refeitos:
+            print(f"  [{_relogio(r['inicio'])}-{_relogio(r['fim'])}] {r['motivo']}")
     return resultado
 
 

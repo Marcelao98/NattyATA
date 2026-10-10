@@ -31,6 +31,8 @@ def _transcricao_json(resultado) -> str:
         "idioma": resultado.idioma,
         "duracao_s": resultado.duracao_s,
         "fonte": resultado.fonte,
+        # trechos que entraram em loop com a lista de termos e foram refeitos sem ela
+        "trechos_refeitos": resultado.refeitos,
     }
     linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
     segmentos = [f"    {json.dumps(asdict(s), ensure_ascii=False)}" for s in resultado.segmentos]

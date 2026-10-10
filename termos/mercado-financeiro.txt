@@ -1,0 +1,43 @@
+# Termos do mercado financeiro (derivativos e opções) para o --termos.
+# Só o que o Whisper costuma errar: palavras em inglês, siglas e nomes
+# próprios. Palavra comum em português ("prêmio", "vencimento") ele já acerta
+# e só gastaria espaço: o Whisper usa no máximo ~223 tokens desta lista.
+
+# Opções
+call
+put
+strike
+notional
+in the money
+at the money
+out of the money
+delta
+gama
+theta
+vega
+Black-Scholes
+straddle
+strangle
+butterfly
+spread
+rolagem
+lançador
+
+# Derivativos e mercado
+derivativos
+hedge
+swap
+mini índice
+mini dólar
+WIN
+WDO
+DI
+day trade
+swing trade
+stop loss
+book de ofertas
+trader
+B3
+CDI
+Selic
+Ibovespa

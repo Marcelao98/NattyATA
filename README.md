@@ -64,8 +64,27 @@ nomes e termos técnicos; nesse caso, vale o Whisper.
 | `--saida pasta` | `transcricoes/` | onde as pastas são criadas |
 | `--texto` | `perguntar` | YouTube: `legenda`, `whisper` ou `perguntar` (sem terminal interativo, passe `legenda` ou `whisper`) |
 
-Use `--termos` com cuidado: uma lista longa de nomes já causou um loop de
-repetição numa sessão real.
+### Lista de termos (`--termos`)
+
+Ajuda o Whisper com palavras que ele costuma errar: termos em inglês, siglas,
+nomes próprios. Há uma pronta para mercado financeiro:
+
+```bash
+ata "https://www.youtube.com/watch?v=..." --texto whisper --termos termos/mercado-financeiro.txt
+```
+
+O faster-whisper coloca a lista como "texto anterior" em toda janela de 30 s,
+e com áudio confuso o Whisper às vezes copia a lista ou repete uma frase (já
+aconteceu numa sessão real da Natty). Por isso, com `--termos`:
+
+1. **Lista curta.** O Whisper só usa ~223 tokens da lista; acima disso a
+   `ata` avisa. Coloque só o que ele erra, não palavras comuns.
+2. **Detecção.** Depois de transcrever, procura sinais de loop: texto
+   repetitivo demais (o mesmo critério de compressão do Whisper), segmento
+   que é quase só termos da lista, ou a mesma frase em segmentos seguidos.
+3. **Correção.** Refaz só esses trechos **sem** a lista. O terminal mostra
+   quantos foram refeitos, e o `transcricao.json` guarda cada um em
+   `trechos_refeitos` (horário, motivo e o texto de antes).
 
 ## Onde fica o modelo
 

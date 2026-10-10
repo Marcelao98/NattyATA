@@ -82,6 +82,55 @@ class TestResultado(unittest.TestCase):
         self.assertEqual(chamadas, [(2.0, 8.0), (5.0, 8.0), (8.0, 8.0)])
 
 
+class ModeloComLoop(ModeloDuble):
+    """Com hotwords entra em loop no 2º segmento; sem hotwords transcreve certo."""
+
+    def __init__(self):
+        super().__init__()
+        self.chamadas = []
+
+    def transcribe(self, audio, **opcoes):
+        self.chamadas.append((len(audio), opcoes))
+        if "hotwords" in opcoes:
+            self.segmentos = [(0.0, 4.0, "A call dá direito de compra."),
+                              (5.0, 9.0, "Call, put, strike, notional, delta."),
+                              (10.0, 14.0, "Fim da aula.")]
+        else:
+            self.segmentos = [(0.3, 3.8, "O notional é quantidade vezes strike.")]
+        return super().transcribe(audio, **opcoes)
+
+
+class TestLoopComTermos(unittest.TestCase):
+    def test_refaz_so_o_trecho_suspeito_sem_os_termos(self):
+        duble = ModeloComLoop()
+        r = transcrever(duble, duracao=15.0, hotwords="call, put, strike, notional, delta")
+        self.assertEqual(len(duble.chamadas), 2)
+        tamanho, opcoes = duble.chamadas[1]
+        self.assertNotIn("hotwords", opcoes)
+        self.assertIs(opcoes["vad_filter"], True)
+        self.assertEqual(tamanho, int(5.0 * 16000))  # de 4.5 s a 9.5 s: folga sem invadir vizinhos
+        self.assertEqual([s.texto for s in r.segmentos],
+                         ["A call dá direito de compra.", "O notional é quantidade vezes strike.", "Fim da aula."])
+        self.assertAlmostEqual(r.segmentos[1].inicio, 4.8)  # horário deslocado para o vídeo
+        self.assertEqual(r.refeitos, [{"inicio": 4.5, "fim": 9.5, "motivo": "eco da lista de termos",
+                                       "antes": "Call, put, strike, notional, delta."}])
+
+    def test_sem_termos_nao_procura_loop(self):
+        duble = ModeloDuble([(0, 1, "a a a a")])
+        r = transcrever(duble)
+        self.assertEqual(r.refeitos, [])
+
+    def test_avisa_lista_longa_demais(self):
+        class Tokenizador:
+            def encode(self, texto):
+                return type("E", (), {"ids": texto.split()})()
+
+        duble = ModeloDuble()
+        duble.hf_tokenizer = Tokenizador()
+        r = transcrever(duble, hotwords=", ".join(["termo"] * 300))
+        self.assertTrue(any("tokens" in a for a in r.avisos))
+
+
 class TestTermos(unittest.TestCase):
     def test_um_por_linha_ignorando_vazios_e_comentarios(self):
         conteudo = "# nomes da campanha\nNhalor\n\n  Vorric  \nElijah Vorren # NPC\n"

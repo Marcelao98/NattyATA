@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 — 2026-10-10
+
+Lista de termos com proteção contra loop.
+
+- `repeticao.py`: detecta loop do Whisper (texto repetitivo pelo critério de
+  compressão do próprio Whisper, eco da lista de termos, frase repetida em
+  segmentos seguidos).
+- Com `--termos`, o motor refaz só os trechos suspeitos sem a lista e guarda
+  cada um em `trechos_refeitos` no `transcricao.json`.
+- Aviso quando a lista passa do limite de ~223 tokens que o Whisper usa.
+- `termos/mercado-financeiro.txt`: 35 termos de derivativos e opções.
+
 ## 0.3.0 — 2026-10-10
 
 Passo 3: o Escrivão.

@@ -9,6 +9,7 @@ import os
 from dataclasses import dataclass, field
 
 from . import audio as _audio
+from . import repeticao
 
 # "large-v3-turbo": multilíngue, qualidade perto do large-v3, mais rápido até
 # que o medium. O "small" errou nomes e palavras soltas num teste real
@@ -25,6 +26,12 @@ IDIOMA_PADRAO = "pt"
 # (os.cpu_count() conta os lógicos, o dobro com hyperthreading).
 BEAM_SIZE = 1
 CPU_THREADS = max(1, (os.cpu_count() or 2) // 2)
+
+# O faster-whisper corta os hotwords em max_length // 2 - 1 = 223 tokens, sem
+# avisar. Acima disso a CLI avisa que a lista foi cortada.
+LIMITE_TOKENS_TERMOS = 224
+# Folga de cada lado ao refazer um trecho suspeito (sem invadir os vizinhos).
+FOLGA_REFAZER_S = 0.5
 
 _MODELOS = {}  # nome -> WhisperModel já carregado
 
@@ -44,6 +51,8 @@ class Resultado:
     idioma: str
     segmentos: list = field(default_factory=list)
     origem: str = "whisper"  # whisper, legenda-manual ou legenda-automatica
+    refeitos: list = field(default_factory=list)  # trechos refeitos sem os termos (ver repeticao.py)
+    avisos: list = field(default_factory=list)
 
 
 def modelo_em_cache(nome: str = MODELO_PADRAO) -> bool:
@@ -78,6 +87,46 @@ def ler_termos(texto: str) -> str:
     return ", ".join(termos)
 
 
+def _tokens_dos_termos(whisper, hotwords: str) -> int | None:
+    """Quantos tokens a lista ocupa, se o modelo deixar contar (o dublê não deixa)."""
+    tokenizador = getattr(whisper, "hf_tokenizer", None)
+    if tokenizador is None:
+        return None
+    return len(tokenizador.encode(" " + hotwords.strip()).ids)
+
+
+def _converter(brutos, deslocamento: float = 0.0) -> list:
+    return [Segmento(inicio=s.start + deslocamento, fim=s.end + deslocamento, texto=s.text.strip()) for s in brutos]
+
+
+def _refazer_suspeitos(whisper, array, duracao, segmentos, termos, opcoes) -> tuple:
+    """
+    Refaz SEM os termos cada faixa de segmentos com sinal de loop. A janela vai
+    do começo do primeiro ao fim do último segmento da faixa, com uma folga
+    que não invade os vizinhos. Devolve (segmentos, [trechos refeitos]).
+    """
+    faixas = repeticao.trechos_suspeitos(segmentos, termos)
+    if not faixas:
+        return segmentos, []
+    sem_termos = {k: v for k, v in opcoes.items() if k != "hotwords"}
+    novos, refeitos, inicio_livre = [], [], 0
+    for i, j, motivo in faixas:
+        ini = max(segmentos[i].inicio - FOLGA_REFAZER_S, segmentos[i - 1].fim if i else 0.0)
+        fim = min(segmentos[j].fim + FOLGA_REFAZER_S, segmentos[j + 1].inicio if j + 1 < len(segmentos) else duracao)
+        pedaco = array[int(ini * _audio.TAXA):int(fim * _audio.TAXA)]
+        brutos, _ = whisper.transcribe(pedaco, **sem_termos)
+        novos += segmentos[inicio_livre:i] + _converter(brutos, ini)
+        inicio_livre = j + 1
+        refeitos.append({
+            "inicio": round(ini, 2),
+            "fim": round(fim, 2),
+            "motivo": motivo,
+            "antes": " ".join(s.texto for s in segmentos[i:j + 1]),
+        })
+    novos += segmentos[inicio_livre:]
+    return novos, refeitos
+
+
 def transcrever(
     caminho,
     modelo: str = MODELO_PADRAO,
@@ -89,10 +138,14 @@ def transcrever(
 ) -> Resultado:
     """
     Transcreve o arquivo em `caminho`. `idioma` None (ou "auto") deixa o
-    Whisper detectar. `hotwords` só vai pro modelo se vier preenchido: a
-    lista de termos da campanha causou um loop de repetição na sessão real.
-    `progresso(segundo_atual, total)` é chamado a cada segmento pronto.
-    `carregar_audio` e `obter_modelo` existem pros testes trocarem por dublês.
+    Whisper detectar. `progresso(segundo_atual, total)` é chamado a cada
+    segmento pronto. `carregar_audio` e `obter_modelo` existem pros testes
+    trocarem por dublês.
+
+    `hotwords` só vai pro modelo se vier preenchido, e com proteção contra o
+    loop de repetição que a lista de termos da campanha causou na sessão real:
+    depois da transcrição, os trechos com sinal de loop (ver repeticao.py) são
+    refeitos sem os termos e ficam registrados em `Resultado.refeitos`.
     """
     if idioma == "auto":
         idioma = None
@@ -106,8 +159,13 @@ def transcrever(
         condition_on_previous_text=False,
         beam_size=BEAM_SIZE,
     )
+    avisos = []
     if hotwords:
         opcoes["hotwords"] = hotwords
+        tokens = _tokens_dos_termos(whisper, hotwords)
+        if tokens is not None and tokens >= LIMITE_TOKENS_TERMOS:
+            avisos.append(f"a lista de termos tem {tokens} tokens; o Whisper só usa os primeiros "
+                          f"{LIMITE_TOKENS_TERMOS - 1} e corta o resto. Encurte a lista.")
     brutos, info = whisper.transcribe(array, **opcoes)
 
     segmentos = []
@@ -115,6 +173,11 @@ def transcrever(
         segmentos.append(Segmento(inicio=s.start, fim=s.end, texto=s.text.strip()))
         if progresso:
             progresso(min(s.end, duracao), duracao)
+
+    refeitos = []
+    if hotwords:
+        segmentos, refeitos = _refazer_suspeitos(
+            whisper, array, duracao, segmentos, repeticao.termos_da_lista(hotwords), opcoes)
     if progresso:
         progresso(duracao, duracao)
 
@@ -124,4 +187,6 @@ def transcrever(
         modelo=modelo,
         idioma=getattr(info, "language", None) or idioma or "?",
         segmentos=segmentos,
+        refeitos=refeitos,
+        avisos=avisos,
     )
