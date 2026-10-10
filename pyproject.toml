@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "natty-ata"
+version = "0.1.0"
+description = "Transforma um arquivo de áudio ou vídeo em texto (faster-whisper). Parte do ecossistema da Natty."
+readme = "README.md"
+requires-python = ">=3.14"
+# numpy já vem com o faster-whisper; listado porque o código importa direto.
+dependencies = [
+    "faster-whisper>=1.2.1",
+    "numpy",
+]
+
+[project.scripts]
+ata = "natty_ata.cli:main"
+
+[tool.setuptools]
+packages = ["natty_ata"]
