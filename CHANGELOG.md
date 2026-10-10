@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0 — 2026-10-10
+
+Passo 2: YouTube, com legenda antes do Whisper.
+
+- `fonte.py`: lê metadados e legendas com o yt-dlp, baixa só a legenda ou só
+  o áudio (apagado depois).
+- `legenda.py`: escolhe a legenda (manual antes da automática; da automática
+  só a original, nunca a traduzida), lê o .vtt sem as linhas repetidas da
+  legenda automática e calcula indicadores e trechos para o usuário julgar.
+- A CLI mostra os trechos e pergunta: legenda ou Whisper. `--texto` pula a
+  pergunta.
+- `pasta.py`: cada entrada vira `transcricoes/<nome>/` com `fonte.json`,
+  `transcricao.json` (com `origem`) e `transcricao.txt`.
+- Parágrafo tem no máximo 60 s (`DURACAO_MAX_PARAGRAFO_S`): fala sem pausa
+  virava um bloco só.
+
 ## 0.1.0 — 2026-10-10
 
 Passo 1: motor de transcrição extraído do Escriba da Natty.

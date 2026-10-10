@@ -1,3 +1,3 @@
-"""Natty-ATA: transforma um arquivo de áudio ou vídeo em texto (faster-whisper)."""
+"""Natty-ATA: transforma um vídeo do YouTube ou arquivo de áudio em texto."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

@@ -125,7 +125,7 @@ compara dois vídeos).
 ## Roteiro
 
 1. Motor de transcrição de arquivo local. **(feito)**
-2. Fonte YouTube (`yt-dlp`): legenda primeiro com aprovação do usuário,
+2. Fonte YouTube (`yt-dlp`): legenda primeiro com aprovação do usuário, **(feito)**
    Whisper como alternativa; pasta do vídeo, `transcricao.json`.
 3. Escrivão.
 4. Preceptor.

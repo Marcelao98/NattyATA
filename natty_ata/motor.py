@@ -40,9 +40,10 @@ class Segmento:
 class Resultado:
     fonte: str
     duracao_s: float
-    modelo: str
+    modelo: str | None       # None quando o texto veio de legenda
     idioma: str
     segmentos: list = field(default_factory=list)
+    origem: str = "whisper"  # whisper, legenda-manual ou legenda-automatica
 
 
 def modelo_em_cache(nome: str = MODELO_PADRAO) -> bool:
