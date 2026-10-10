@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.0 — 2026-10-10
+
+Menos tokens nos agentes. Os agentes gastavam muito: um Escrivão de vídeo de
+5 h 20 escreveu um documento de ~54 mil tokens (quase o tamanho da legenda,
+~70 mil), lendo o JSON, que tem o dobro dos caracteres do texto.
+
+- **`transcricao.txt` com `[mm:ss]` em cada parágrafo**, em todas as fontes
+  (antes, só na linha do tempo da gravação com duas faixas). Os agentes leem
+  só ele; do `transcricao.json`, só o cabeçalho, e usam `Grep` quando precisam
+  de um horário mais exato (o do parágrafo pode ter até 1 minuto de folga).
+- **OCR mais enxuto.** `visual.limpar_ruido`: linha que aparece em 30% ou mais
+  dos slides com texto (barra do navegador, abas) sai do texto, e slide sem
+  texto útil é descartado e contado. O `visual.json` ganha `ruido_removido` e
+  `slides_sem_texto_descartados` no cabeçalho. Os números são chutes, ainda
+  não medidos em vídeo real.
+- **Escrivão e Preceptor no Sonnet** (`model: sonnet`) e com **extensão**
+  (`curto`, `medio`, `completo`; padrão `medio`) para limitar o que escrevem.
+  Leem em poucas chamadas e escrevem o arquivo numa só. O Preceptor, com um
+  `pontos-chave-*.md` na pasta, não relê a transcrição inteira.
+- Fora do pacote Python: nenhuma chamada de LLM foi adicionada.
+
 ## 0.8.0 — 2026-10-10
 
 Gravação: canais separados até o fim, horário certo, listas de termos.

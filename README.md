@@ -45,7 +45,8 @@ Cada entrada vira uma pasta em `transcricoes/<nome>/`:
 - `fonte.json`: de onde veio (url, título, canal, duração).
 - `transcricao.json`: segmentos com horário e a `origem` do texto
   (`legenda-manual`, `legenda-automatica` ou `whisper`).
-- `transcricao.txt`: parágrafos separados por linha em branco.
+- `transcricao.txt`: parágrafos separados por linha em branco, cada um começando
+  com o horário (`[mm:ss]`). É o que os agentes leem.
 
 Arquivo local aceita qualquer formato que o ffmpeg abra: `.opus`, `.ogg`,
 `.mp3`, `.m4a`, `.wav`, `.mp4`...
