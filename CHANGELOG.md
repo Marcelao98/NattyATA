@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 — 2026-10-10
+
+Passo 3: o Escrivão.
+
+- `.claude/agents/escrivao.md`: subagente que lê a pasta do vídeo e escreve
+  `pontos-chave-<foco>.md`, fiel ao vídeo, com horário e link de cada ponto.
+- `fonte.json` ganha os capítulos que o autor marcou e a descrição do vídeo.
+- `transcricao.json` com um segmento por linha, para os agentes lerem por
+  faixas.
+- CLAUDE.md: quem pergunta ao usuário é a conversa principal (subagente não
+  conversa); um arquivo por foco; limitação do que só aparece na tela.
+
 ## 0.2.0 — 2026-10-10
 
 Passo 2: YouTube, com legenda antes do Whisper.

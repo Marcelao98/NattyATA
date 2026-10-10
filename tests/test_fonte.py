@@ -14,6 +14,8 @@ INFO = {
     "language": "pt-BR",
     "subtitles": {"pt-BR": [{"ext": "vtt"}]},
     "automatic_captions": {"pt-orig": [{"ext": "vtt"}]},
+    "chapters": [{"start_time": 0, "end_time": 53, "title": "Introdução"}],
+    "description": "Links e referências",
 }
 
 
@@ -65,7 +67,18 @@ class TestFonte(unittest.TestCase):
         self.assertEqual(video.idioma, "pt-BR")
         self.assertIn("pt-BR", video.legendas)
         self.assertIn("pt-orig", video.legendas_automaticas)
-        self.assertEqual(video.para_json()["url"], "https://www.youtube.com/watch?v=abc123")
+        dados = video.para_json()
+        self.assertEqual(dados["url"], "https://www.youtube.com/watch?v=abc123")
+        self.assertEqual(dados["capitulos"], [{"inicio": 0, "fim": 53, "titulo": "Introdução"}])
+        self.assertEqual(dados["descricao"], "Links e referências")
+
+    def test_video_sem_capitulos(self):
+        class SemCapitulos(YoutubeDLDuble):
+            def extract_info(self, url, download):
+                return {k: v for k, v in INFO.items() if k not in ("chapters", "description")}
+
+        video = fonte.inspecionar("u", fabrica=SemCapitulos)
+        self.assertEqual((video.capitulos, video.descricao), ([], ""))
 
     def test_baixar_legenda_automatica_sem_audio(self):
         vtt = fonte.baixar_legenda("u", "pt-orig", True, self.pasta, fabrica=YoutubeDLDuble)

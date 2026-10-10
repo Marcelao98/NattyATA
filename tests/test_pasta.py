@@ -30,6 +30,16 @@ class TestPasta(unittest.TestCase):
             self.assertEqual(transcricao["origem"], "legenda-manual")
             self.assertIsNone(transcricao["modelo"])
             self.assertEqual(transcricao["segmentos"][1], {"inicio": 2.5, "fim": 4.0, "texto": "Tudo bem?"})
+            # um segmento por linha, para os agentes lerem por faixas
+            linhas = (destino / "transcricao.json").read_text(encoding="utf-8").splitlines()
+            self.assertIn('    {"inicio": 2.5, "fim": 4.0, "texto": "Tudo bem?"},', linhas)
+
+    def test_gravar_sem_segmentos_continua_json_valido(self):
+        resultado = Resultado(fonte="f", duracao_s=0.0, modelo=None, idioma="pt")
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta.gravar(Path(tmp), {}, resultado)
+            dados = json.loads((Path(tmp) / "transcricao.json").read_text(encoding="utf-8"))
+            self.assertEqual(dados["segmentos"], [])
 
 
 if __name__ == "__main__":

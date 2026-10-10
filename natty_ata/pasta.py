@@ -20,6 +20,26 @@ def slug(nome: str, sufixo: str | None = None) -> str:
     return f"{base}-{sufixo}" if sufixo else base
 
 
+def _transcricao_json(resultado) -> str:
+    """
+    JSON com um segmento por linha: os agentes leem o arquivo por faixas de
+    linhas, e com indentação normal cada segmento ocupava cinco.
+    """
+    cabecalho = {
+        "origem": resultado.origem,
+        "modelo": resultado.modelo,
+        "idioma": resultado.idioma,
+        "duracao_s": resultado.duracao_s,
+        "fonte": resultado.fonte,
+    }
+    linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
+    segmentos = [f"    {json.dumps(asdict(s), ensure_ascii=False)}" for s in resultado.segmentos]
+    linhas.append('  "segmentos": [')
+    if segmentos:
+        linhas.append(",\n".join(segmentos))
+    return "{\n" + "\n".join(linhas) + "\n  ]\n}\n"
+
+
 def gravar(pasta: Path, fonte: dict, resultado) -> Path:
     """Escreve fonte.json, transcricao.json e transcricao.txt. Devolve o .txt."""
     pasta = Path(pasta)
@@ -29,14 +49,7 @@ def gravar(pasta: Path, fonte: dict, resultado) -> Path:
         (pasta / nome).write_text(json.dumps(dados, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     escrever_json("fonte.json", fonte)
-    escrever_json("transcricao.json", {
-        "origem": resultado.origem,
-        "modelo": resultado.modelo,
-        "idioma": resultado.idioma,
-        "duracao_s": resultado.duracao_s,
-        "fonte": resultado.fonte,
-        "segmentos": [asdict(s) for s in resultado.segmentos],
-    })
+    (pasta / "transcricao.json").write_text(_transcricao_json(resultado), encoding="utf-8")
     destino = pasta / "transcricao.txt"
     destino.write_text(texto.formatar(texto.juntar_em_paragrafos(resultado.segmentos)), encoding="utf-8")
     return destino

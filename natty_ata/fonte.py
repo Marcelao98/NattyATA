@@ -24,6 +24,10 @@ class Video:
     idioma: str | None        # idioma original do vídeo, se o YouTube souber
     legendas: dict = field(default_factory=dict)              # manuais: chave -> formatos
     legendas_automaticas: dict = field(default_factory=dict)
+    # Capítulos que o autor marcou: [{"inicio", "fim", "titulo"}]. Dão aos
+    # agentes a estrutura que o próprio autor definiu.
+    capitulos: list = field(default_factory=list)
+    descricao: str = ""
 
     def para_json(self) -> dict:
         return {
@@ -35,6 +39,8 @@ class Video:
             "duracao_s": self.duracao_s,
             "data": self.data,
             "idioma": self.idioma,
+            "capitulos": self.capitulos,
+            "descricao": self.descricao,
         }
 
 
@@ -72,6 +78,11 @@ def inspecionar(url: str, fabrica=None) -> Video:
         idioma=info.get("language"),
         legendas=info.get("subtitles") or {},
         legendas_automaticas=info.get("automatic_captions") or {},
+        capitulos=[
+            {"inicio": c.get("start_time"), "fim": c.get("end_time"), "titulo": c.get("title")}
+            for c in info.get("chapters") or []
+        ],
+        descricao=info.get("description") or "",
     )
 
 
