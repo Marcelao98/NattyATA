@@ -109,3 +109,7 @@ python -m unittest discover -s tests
 ```
 
 Rodam com dublês: sem rede, sem modelo, sem ffmpeg e sem yt-dlp.
+
+## Licença
+
+MIT. Ver [LICENSE](LICENSE).
