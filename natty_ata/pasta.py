@@ -34,6 +34,8 @@ def _transcricao_json(resultado) -> str:
         # trechos que entraram em loop com a lista de termos e foram refeitos sem ela
         "trechos_refeitos": resultado.refeitos,
     }
+    if resultado.faixas:  # só gravação com duas faixas; os outros casos saem como antes
+        cabecalho["faixas"] = resultado.faixas
     linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
     # `falante` só aparece quando existe (gravação com duas faixas).
     dados = [{k: v for k, v in asdict(s).items() if k != "falante" or v is not None} for s in resultado.segmentos]
@@ -55,8 +57,24 @@ def gravar(pasta: Path, fonte: dict, resultado) -> Path:
     escrever_json("fonte.json", fonte)
     (pasta / "transcricao.json").write_text(_transcricao_json(resultado), encoding="utf-8")
     destino = pasta / "transcricao.txt"
-    destino.write_text(texto.formatar(texto.juntar_em_paragrafos(resultado.segmentos)), encoding="utf-8")
+    if _duas_faixas(fonte, resultado.segmentos):
+        # Cada canal vira parágrafos sozinho; o .txt principal é a linha do tempo deles.
+        canais = texto.por_canal(resultado.segmentos)
+        destino.write_text(texto.linha_do_tempo(canais), encoding="utf-8")
+        for falante in texto.ROTULOS:
+            (pasta / f"transcricao-{falante}.txt").write_text(
+                texto.formatar_canal(canais.get(falante, [])), encoding="utf-8")
+    else:
+        destino.write_text(texto.formatar(texto.juntar_em_paragrafos(resultado.segmentos)), encoding="utf-8")
     return destino
+
+
+def _duas_faixas(fonte: dict, segmentos) -> bool:
+    """Gravação com as duas faixas. Uma faixa muda ainda conta: o arquivo do canal sai vazio."""
+    faixas = fonte.get("faixas")
+    if fonte.get("tipo") == "gravacao" and faixas is not None:
+        return len(faixas) >= 2
+    return texto.duas_faixas(segmentos)
 
 
 def gravar_visual(pasta: Path, dados: dict) -> Path:

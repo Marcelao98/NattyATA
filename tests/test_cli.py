@@ -171,8 +171,11 @@ class TestGravacaoCli(unittest.TestCase):
     def test_transcrever_junta_as_faixas_com_o_falante(self):
         codigo, _, _ = self.gravar("--mic", "--transcrever", "--manter-audio")
         self.assertEqual(codigo, 0)
-        self.assertEqual(self.texto(), "Outros: Bom dia, pessoal.\n\nEu: Bom dia!\n")
+        # com duas faixas, o .txt é a linha do tempo e cada canal tem o seu arquivo
+        self.assertEqual(self.texto(), "[00:00] Outros: Bom dia, pessoal.\n\n[00:03] Eu: Bom dia!\n")
         (pasta_video,) = list(self.saida.iterdir())
+        self.assertEqual((pasta_video / "transcricao-outros.txt").read_text(encoding="utf-8"), "[00:00] Bom dia, pessoal.\n")
+        self.assertEqual((pasta_video / "transcricao-eu.txt").read_text(encoding="utf-8"), "[00:03] Bom dia!\n")
         fonte_json = json.loads((pasta_video / "fonte.json").read_text(encoding="utf-8"))
         self.assertEqual(fonte_json["tipo"], "gravacao")
         self.assertEqual(fonte_json["faixas"], ["sistema", "microfone"])

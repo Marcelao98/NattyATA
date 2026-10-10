@@ -43,6 +43,58 @@ class TestPasta(unittest.TestCase):
         self.assertEqual(segs[0], {"inicio": 0.0, "fim": 1.0, "texto": "oi", "falante": "eu"})
         self.assertEqual(segs[1], {"inicio": 2.0, "fim": 3.0, "texto": "olá"})
 
+    def _duas_faixas(self, **extra):
+        return Resultado(
+            fonte="gravacao", duracao_s=8.0, modelo="m", idioma="pt", origem="whisper",
+            segmentos=[Segmento(0.0, 3.0, "Eu já fiz um vídeo antes, mas", "outros"), Segmento(3.2, 4.0, "Vamos ver", "eu"),
+                       Segmento(3.5, 6.0, "eu quero que esse seja o tutorial", "outros")],
+            **extra)
+
+    def test_gravacao_com_duas_faixas_gera_um_arquivo_por_canal_e_a_linha_do_tempo(self):
+        fonte = {"tipo": "gravacao", "faixas": ["sistema", "microfone"]}
+        with tempfile.TemporaryDirectory() as tmp:
+            txt = pasta.gravar(Path(tmp), fonte, self._duas_faixas(faixas=["sistema", "microfone"]))
+            ler = lambda nome: (Path(tmp) / nome).read_text(encoding="utf-8")
+            self.assertEqual(txt.name, "transcricao.txt")
+            self.assertEqual(ler("transcricao.txt"),
+                             "[00:00] Outros: Eu já fiz um vídeo antes, mas eu quero que esse seja o tutorial\n\n"
+                             "[00:03] Eu: Vamos ver\n")
+            self.assertEqual(ler("transcricao-outros.txt"),
+                             "[00:00] Eu já fiz um vídeo antes, mas eu quero que esse seja o tutorial\n")
+            self.assertEqual(ler("transcricao-eu.txt"), "[00:03] Vamos ver\n")
+            cabecalho = json.loads(ler("transcricao.json"))
+            self.assertEqual(cabecalho["faixas"], ["sistema", "microfone"])
+            self.assertEqual(len(cabecalho["segmentos"]), 3)  # o json segue com um segmento por linha, com `falante`
+            self.assertEqual(cabecalho["segmentos"][1]["falante"], "eu")
+
+    def test_canal_mudo_gera_arquivo_vazio_mas_a_gravacao_continua_de_duas_faixas(self):
+        fonte = {"tipo": "gravacao", "faixas": ["sistema", "microfone"]}
+        resultado = Resultado(fonte="g", duracao_s=5.0, modelo="m", idioma="pt",
+                              segmentos=[Segmento(0.0, 1.0, "oi", "outros")], faixas=["sistema", "microfone"])
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta.gravar(Path(tmp), fonte, resultado)
+            self.assertEqual((Path(tmp) / "transcricao-eu.txt").read_text(encoding="utf-8"), "")
+            self.assertEqual((Path(tmp) / "transcricao.txt").read_text(encoding="utf-8"), "[00:00] Outros: oi\n")
+
+    def test_gravacao_com_uma_faixa_fica_como_antes(self):
+        fonte = {"tipo": "gravacao", "faixas": ["microfone"]}
+        resultado = Resultado(fonte="g", duracao_s=5.0, modelo="m", idioma="pt",
+                              segmentos=[Segmento(0.0, 1.0, "oi", "eu"), Segmento(1.5, 2.0, "tudo bem?", "eu")])
+        with tempfile.TemporaryDirectory() as tmp:
+            txt = pasta.gravar(Path(tmp), fonte, resultado)
+            self.assertEqual(txt.read_text(encoding="utf-8"), "Eu: oi tudo bem?\n")
+            self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()),
+                             ["fonte.json", "transcricao.json", "transcricao.txt"])
+            self.assertNotIn("faixas", json.loads((Path(tmp) / "transcricao.json").read_text(encoding="utf-8")))
+
+    def test_youtube_e_arquivo_nao_ganham_arquivos_por_canal(self):
+        resultado = Resultado(fonte="x", duracao_s=5.0, modelo="m", idioma="pt", segmentos=[Segmento(0.0, 1.0, "oi")])
+        for fonte in ({"tipo": "youtube"}, {"tipo": "arquivo"}):
+            with tempfile.TemporaryDirectory() as tmp:
+                pasta.gravar(Path(tmp), fonte, resultado)
+                self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()),
+                                 ["fonte.json", "transcricao.json", "transcricao.txt"])
+
     def test_gravar_visual_um_evento_por_linha(self):
         dados = {"perfil": "aula", "ocr": "tesseract", "eventos": [
             {"tipo": "slide", "inicio": 0.0, "fim": 4.0, "texto": "Linha 1\nLinha 2", "confianca": 96.2, "frame": "frames/0001.jpg"},

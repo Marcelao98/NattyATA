@@ -178,6 +178,12 @@ class TestJuntarFaixas(unittest.TestCase):
         self.assertEqual(r.origem, "whisper")
         self.assertEqual(r.refeitos[0]["falante"], "eu")
         self.assertEqual(r.avisos, ["sistema: x"])
+        self.assertEqual(r.faixas, ["sistema", "microfone"])
+
+    def test_uma_faixa_so_nao_lista_faixas(self):
+        r = gravacao.juntar_faixas({"microfone": Resultado(fonte="a", duracao_s=1.0, modelo="m", idioma="pt",
+                                                           segmentos=[Segmento(0.0, 1.0, "oi")])})
+        self.assertEqual(r.faixas, [])
 
     def test_nao_mexe_nos_segmentos_originais(self):
         original = Segmento(0.0, 1.0, "oi")
