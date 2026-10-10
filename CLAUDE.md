@@ -118,7 +118,7 @@ Pedir de novo com o mesmo foco sobrescreve; foco diferente gera outro arquivo.
   horário (link `&t=` no YouTube), seguindo os capítulos do autor quando há.
   Não acrescenta conhecimento de fora e não explica: se o vídeo não diz, o
   Escrivão não diz. Lista os trechos que a transcrição provavelmente errou.
-- **Preceptor**: didática. Pega um conteúdo difícil (ex.: uma aula densa de
+- **Preceptor** (`preceptor.md`): didática. Pega um conteúdo difícil (ex.: uma aula densa de
   matemática) e reconstrói em ordem de aprendizado: pré-requisitos, intuição
   antes da fórmula, exemplos, analogias, exercícios com resposta. Pode usar
   conhecimento de fora, mas marca o que é acréscimo dele e o que é do vídeo.
@@ -134,6 +134,10 @@ fórmulas e gráficos que o professor não fala ("isso aqui vezes isso"). A
 transcrição perde isso. Os agentes registram que o trecho dependia da tela
 em vez de reconstruir a fórmula. Solução futura: capturas do vídeo (ffmpeg)
 nos horários marcados, para um agente que lê imagem.
+
+Agente novo em `.claude/agents/` só aparece depois de reiniciar a sessão do
+Claude Code. Na mesma sessão em que foi criado, chame um agente genérico
+instruído a ler e seguir o arquivo do agente.
 
 Novos agentes entram como novos arquivos em `.claude/agents/` e novos `.md`
 na pasta do vídeo, sem mexer no código (ex.: um que gera flashcards, um que
@@ -162,7 +166,7 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
 2. Fonte YouTube (`yt-dlp`): legenda primeiro com aprovação do usuário, **(feito)**
    Whisper como alternativa; pasta do vídeo, `transcricao.json`.
 3. Escrivão; capítulos e descrição no `fonte.json`. **(feito)**
-4. Preceptor.
+4. Preceptor. **(feito)**
 
 ## Comandos
 

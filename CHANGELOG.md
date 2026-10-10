@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 — 2026-10-10
+
+Passo 4: o Preceptor.
+
+- `.claude/agents/preceptor.md`: subagente que reescreve o vídeo em ordem de
+  aprendizado para o nível pedido, com exemplos numéricos conferidos,
+  analogias, erros comuns, exercícios com resposta e glossário. Tudo que não
+  está no vídeo vem marcado como [acréscimo]; o que está leva o horário.
+- Primeiro teste real dos dois agentes: vídeo de notional de opções
+  (Escrivão com foco "tudo", Preceptor para iniciante).
+
 ## 0.4.0 — 2026-10-10
 
 Lista de termos com proteção contra loop.
