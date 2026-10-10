@@ -7,10 +7,11 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import fonte, gravacao, legenda, motor, pasta
+from . import aula, fonte, gravacao, legenda, motor, ocr, pasta, quadros, visual
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 TEXTO_ESCOLHAS = ("perguntar", "legenda", "whisper")
+VISUAL_ESCOLHAS = ("nenhum", "auto", "aula")
 
 AVISO_CONSENTIMENTO = ("Aviso: gravar uma conversa sem avisar os outros participantes pode ser ilegal "
                        "onde você mora. Avise quem estiver na gravação.")
@@ -51,6 +52,9 @@ def _argumentos(argv):
     _opcoes_comuns(p)
     p.add_argument("--texto", choices=TEXTO_ESCOLHAS, default="perguntar",
                    help="YouTube: usar a legenda, o Whisper, ou perguntar depois de mostrar trechos (padrão)")
+    p.add_argument("--visual", choices=VISUAL_ESCOLHAS, default="nenhum",
+                   help="extrai também o que aparece na tela (slides + OCR com Tesseract). 'aula' faz direto; "
+                        "'auto' mostra um palpite e pergunta; 'nenhum' (padrão) só o texto. Precisa de vídeo e do Tesseract")
     return p.parse_args(argv)
 
 
@@ -207,6 +211,90 @@ def _do_arquivo(args):
     return args.saida / pasta.slug(caminho.stem), dados, resultado
 
 
+# --- Visual (perfil aula) ----------------------------------------------------
+
+def _progresso_visual(fase):
+    ultimo = [-1]
+
+    def mostrar(atual, total):
+        porcento = int(atual / total * 100) if total else 100
+        if porcento != ultimo[0]:  # só quando o número muda: um quadro por segundo seria muito texto
+            ultimo[0] = porcento
+            print(f"\r  {fase} {porcento:3d}%", end="", flush=True)
+    return mostrar
+
+
+def _mostrar_palpite(ind: dict, perfil: str, motivo: str) -> None:
+    print("\nO que a tela mostra:")
+    print(f"  {ind['trocas']} trocas de tela ({ind['trocas_por_min']} por minuto), "
+          f"uma a cada {_relogio(ind['tempo_medio_s'])} em média")
+    print(f"  {ind['palavras_por_tela']} palavras por tela (lidas em poucas amostras)")
+    print(f"  formato: {'vertical' if ind['vertical'] else 'horizontal'}")
+    print(f"Palpite: {perfil} ({motivo})")
+    if perfil == "corte":
+        print("  O perfil 'corte' (vídeo curto, com cortes rápidos) ainda não existe: só aula por enquanto.")
+
+
+def _confirmar_aula(perfil: str) -> bool:
+    padrao = perfil == "aula"
+    try:
+        resposta = input(f"Extrair os slides com OCR? [{'S/n' if padrao else 's/N'}] ").strip().lower()
+    except EOFError:
+        raise Erro("cancelado")
+    return padrao if not resposta else resposta in ("s", "sim", "y", "yes")
+
+
+def _lang_visual(args, dados_fonte) -> str | None:
+    if args.lang != "auto":
+        return args.lang
+    return (dados_fonte.get("idioma") or "")[:2] or None
+
+
+def _fazer_visual(args, destino: Path, dados_fonte: dict) -> None:
+    idiomas = ocr.idiomas_para(_lang_visual(args, dados_fonte))
+    exe = ocr.verificar(idiomas)  # antes de baixar qualquer coisa
+    with tempfile.TemporaryDirectory(prefix="natty-ata-visual-") as tmp:
+        if fonte.eh_url(args.entrada):
+            print("\nBaixando o vídeo (só a imagem, até 720p)...")
+            video = fonte.baixar_video(dados_fonte.get("url") or args.entrada, Path(tmp))
+        else:
+            video = Path(args.entrada)
+        print("Procurando as trocas de tela...")
+        deteccao = aula.detectar(video, progresso=_progresso_visual("tela"))
+        print()
+        if not deteccao.slides:
+            raise Erro("não achei nenhuma tela no vídeo")
+        if deteccao.truncado:
+            print(f"Aviso: passou de {visual.MAX_SLIDES} trocas de tela; só as primeiras ficam.")
+        if args.visual == "auto":
+            ind, (perfil, motivo) = aula.palpite(video, deteccao, tmp, idiomas=idiomas, exe=exe)
+            _mostrar_palpite(ind, perfil, motivo)
+            if not _confirmar_aula(perfil):
+                print("Visual pulado.")
+                return
+        print(f"Lendo o texto de {len(deteccao.slides)} slide(s) com o Tesseract...")
+        dados = aula.montar(video, deteccao, destino, idiomas=idiomas, exe=exe, progresso=_progresso_visual("slides"),
+                            parametros={"intervalo_s": visual.INTERVALO_S, "limiar_mudanca": visual.LIMIAR_MUDANCA,
+                                        "max_slides": visual.MAX_SLIDES, "escolha": args.visual})
+        print()
+    caminho = pasta.gravar_visual(destino, dados)
+    print(f"Visual: {len(dados['eventos'])} slide(s) em {caminho.parent} (visual.json e frames/).")
+
+
+def _visual(args, destino: Path, dados_fonte: dict) -> int:
+    """Roda o visual depois do texto. Se falhar, o texto já está salvo: avisa e sai com código 1."""
+    try:
+        from yt_dlp.utils import DownloadError
+    except ImportError:  # pragma: no cover
+        DownloadError = RuntimeError
+    try:
+        _fazer_visual(args, destino, dados_fonte)
+    except (Erro, ocr.ErroOcr, quadros.ErroDeVideo, FfmpegAusente, FileNotFoundError, RuntimeError, DownloadError) as e:
+        print(f"\nErro no visual: {e}\nO texto já está salvo em {destino}.", file=sys.stderr)
+        return 1
+    return 0
+
+
 # --- Gravação ----------------------------------------------------------------
 
 def _argumentos_gravar(argv):
@@ -260,6 +348,11 @@ def _main_gravar(argv) -> int:
 def _executar(args) -> int:
     """Produz a pasta do vídeo para `args.entrada` (URL, arquivo ou pasta de gravação)."""
     comeco = time.perf_counter()
+    visual_pedido = getattr(args, "visual", "nenhum")
+    if visual_pedido == "auto" and not sys.stdin.isatty():
+        print("\nErro: --visual auto precisa de um terminal para perguntar. Use --visual aula ou --visual nenhum.",
+              file=sys.stderr)
+        return 1
     try:
         destino, dados_fonte, resultado = (_do_youtube if fonte.eh_url(args.entrada) else _do_arquivo)(args)
     except Erro as e:
@@ -269,7 +362,11 @@ def _executar(args) -> int:
     gasto = time.perf_counter() - comeco
     print(f"Pronto em {_relogio(gasto)} (texto de {resultado.origem}, {resultado.duracao_s:.0f}s de áudio): {txt.parent}")
     if dados_fonte.get("tipo") == "gravacao":
+        if visual_pedido != "nenhum":
+            print("Aviso: --visual não se aplica a uma gravação de áudio.")
         _apagar_audio(args, Path(args.entrada))
+    elif visual_pedido != "nenhum":
+        return _visual(args, destino, dados_fonte)
     return 0
 
 

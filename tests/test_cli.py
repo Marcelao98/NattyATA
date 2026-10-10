@@ -8,7 +8,7 @@ from unittest import mock
 
 import numpy as np
 
-from natty_ata import cli, fonte, gravacao
+from natty_ata import aula, cli, fonte, gravacao, ocr, quadros, visual
 from natty_ata.motor import Resultado, Segmento
 
 VIDEO = fonte.Video(
@@ -104,6 +104,11 @@ def _whisper_falso(caminho, args, idioma):
     fala = {"sistema": Segmento(0.0, 2.0, "Bom dia, pessoal."), "microfone": Segmento(3.0, 4.0, "Bom dia!")}
     return Resultado(fonte="x", duracao_s=5.0, modelo="large-v3-turbo", idioma="pt",
                      segmentos=[fala[Path(caminho).stem]])
+
+
+def _whisper_falso_arquivo(caminho, args, idioma):
+    return Resultado(fonte="x", duracao_s=60.0, modelo="large-v3-turbo", idioma="pt",
+                     segmentos=[Segmento(0.0, 2.0, "Texto do áudio.")])
 
 
 class TestGravacaoCli(unittest.TestCase):
@@ -234,6 +239,159 @@ class TestGravacaoCli(unittest.TestCase):
         with mock.patch.object(gravacao, "abrir_entradas", lambda microfone=False: [Muda("sistema")]):
             _, out, _ = self.gravar()
         self.assertIn("quase muda", out)
+
+
+class TestVisualCli(unittest.TestCase):
+    INFO = {"largura": 1280, "altura": 720, "duracao_s": 60.0}
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.raiz = Path(tmp.name)
+        self.saida = self.raiz / "transcricoes"
+        self.baixou = []
+        self.palpite = ({"vertical": False, "trocas": 3, "trocas_por_min": 3.0, "tempo_medio_s": 20.0,
+                         "palavras_por_tela": 25.0}, ("aula", "tela estável com bastante texto"))
+        self.slides = [visual.Slide(0, 30, 2), visual.Slide(30, 60, 32)]
+
+        def baixar_video(url, destino):
+            self.baixou.append(url)
+            caminho = Path(destino) / "video.mp4"
+            caminho.write_bytes(b"v")
+            return caminho
+
+        self.detectar = mock.Mock(side_effect=lambda video, **kw: aula.Deteccao(self.INFO, list(self.slides), False))
+        self.montar = mock.Mock(side_effect=lambda video, d, destino, **kw: {
+            "perfil": "aula", "eventos": [{"tipo": "slide", "inicio": 0.0, "fim": 30.0, "texto": "Olá", "frame": "frames/0001.jpg"}]})
+        for objeto, nome, valor in (
+            (fonte, "inspecionar", lambda url: VIDEO),
+            (fonte, "baixar_legenda", _vtt),
+            (fonte, "baixar_video", baixar_video),
+            (fonte, "baixar_audio", lambda url, destino: Path(destino) / "audio.webm"),
+            (ocr, "verificar", lambda idiomas: "tesseract"),
+            (aula, "detectar", self.detectar),
+            (aula, "palpite", lambda *a, **kw: self.palpite),
+            (aula, "montar", self.montar),
+            (cli, "_whisper", _whisper_falso_arquivo),
+        ):
+            p = mock.patch.object(objeto, nome, valor)
+            p.start()
+            self.addCleanup(p.stop)
+
+    def rodar(self, entrada, *flags, tty=True, respostas=()):
+        respostas = iter(respostas)
+        with mock.patch.object(cli.sys.stdin, "isatty", return_value=tty), \
+             mock.patch("builtins.input", lambda prompt: next(respostas)), \
+             redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+            codigo = cli.main([entrada, "--saida", str(self.saida), *flags])
+        return codigo, out.getvalue(), err.getvalue()
+
+    def youtube(self, *flags, **kw):
+        return self.rodar(VIDEO.url, "--texto", "legenda", *flags, **kw)
+
+    @property
+    def pasta_video(self):
+        return self.saida / "aula-abc"
+
+    def test_padrao_nao_faz_visual(self):
+        codigo, _, _ = self.youtube()
+        self.assertEqual(codigo, 0)
+        self.detectar.assert_not_called()
+        self.assertEqual(self.baixou, [])
+
+    def test_aula_baixa_o_video_e_grava_o_visual_depois_do_texto(self):
+        codigo, out, _ = self.youtube("--visual", "aula")
+        self.assertEqual(codigo, 0)
+        self.assertEqual(self.baixou, [VIDEO.url])
+        self.assertTrue((self.pasta_video / "transcricao.txt").is_file())
+        lido = json.loads((self.pasta_video / "visual.json").read_text(encoding="utf-8"))
+        self.assertEqual(lido["eventos"][0]["texto"], "Olá")
+        self.assertIn("1 slide", out)
+
+    def test_aula_passa_o_idioma_do_ocr(self):
+        self.youtube("--visual", "aula", "--lang", "en")
+        self.assertEqual(self.montar.call_args.kwargs["idiomas"], "eng")
+        self.youtube("--visual", "aula")
+        self.assertEqual(self.montar.call_args.kwargs["idiomas"], "por+eng")
+
+    def test_auto_sem_terminal_falha_antes_de_fazer_qualquer_coisa(self):
+        codigo, _, err = self.youtube("--visual", "auto", tty=False)
+        self.assertEqual(codigo, 1)
+        self.assertIn("--visual aula", err)
+        self.assertFalse(self.saida.exists())
+        self.assertEqual(self.baixou, [])
+
+    def test_auto_enter_aceita_o_palpite_aula(self):
+        codigo, out, _ = self.youtube("--visual", "auto", respostas=[""])
+        self.assertEqual(codigo, 0)
+        self.assertIn("Palpite: aula", out)
+        self.assertIn("25.0 palavras por tela", out)
+        self.assertTrue((self.pasta_video / "visual.json").is_file())
+
+    def test_auto_com_palpite_nenhum_enter_pula(self):
+        self.palpite = ({**self.palpite[0], "palavras_por_tela": 2.0}, ("nenhum", "pouco texto na tela"))
+        codigo, out, _ = self.youtube("--visual", "auto", respostas=[""])
+        self.assertEqual(codigo, 0)
+        self.assertIn("Visual pulado", out)
+        self.assertFalse((self.pasta_video / "visual.json").exists())
+        self.montar.assert_not_called()
+
+    def test_auto_o_usuario_pode_discordar_do_palpite(self):
+        self.palpite = ({**self.palpite[0], "palavras_por_tela": 2.0}, ("nenhum", "pouco texto na tela"))
+        self.youtube("--visual", "auto", respostas=["s"])
+        self.assertTrue((self.pasta_video / "visual.json").is_file())
+        self.baixou.clear()
+        self.palpite = (self.palpite[0], ("aula", "x"))
+        self.youtube("--visual", "auto", respostas=["n"])
+        self.assertFalse(self.montar.call_args is None)
+
+    def test_palpite_corte_avisa_que_ainda_nao_existe(self):
+        self.palpite = ({**self.palpite[0], "vertical": True}, ("corte", "vídeo vertical"))
+        _, out, _ = self.youtube("--visual", "auto", respostas=["n"])
+        self.assertIn("ainda não existe", out)
+
+    def test_sem_tesseract_falha_antes_de_baixar_o_video_e_o_texto_fica(self):
+        def sem(idiomas):
+            raise ocr.ErroOcr("Tesseract não encontrado. Instale o Tesseract")
+        with mock.patch.object(ocr, "verificar", sem):
+            codigo, _, err = self.youtube("--visual", "aula")
+        self.assertEqual(codigo, 1)
+        self.assertIn("Tesseract", err)
+        self.assertEqual(self.baixou, [])
+        self.assertTrue((self.pasta_video / "transcricao.txt").is_file())
+
+    def test_erro_no_video_mantem_o_texto_e_avisa(self):
+        self.detectar.side_effect = quadros.ErroDeVideo("ffmpeg não conseguiu ler video.mp4")
+        codigo, _, err = self.youtube("--visual", "aula")
+        self.assertEqual(codigo, 1)
+        self.assertIn("O texto já está salvo", err)
+        self.assertTrue((self.pasta_video / "transcricao.txt").is_file())
+        self.assertFalse((self.pasta_video / "visual.json").exists())
+
+    def test_video_sem_nenhuma_tela(self):
+        self.slides = []
+        codigo, _, err = self.youtube("--visual", "aula")
+        self.assertEqual(codigo, 1)
+        self.assertIn("nenhuma tela", err)
+
+    def test_arquivo_local_nao_baixa_nada_e_usa_o_proprio_arquivo(self):
+        arquivo = self.raiz / "aula.mp4"
+        arquivo.write_bytes(b"v")
+        codigo, _, _ = self.rodar(str(arquivo), "--visual", "aula")
+        self.assertEqual(codigo, 0)
+        self.assertEqual(self.baixou, [])
+        self.assertEqual(Path(self.detectar.call_args.args[0]), arquivo)
+        self.assertTrue((self.saida / "aula" / "visual.json").is_file())
+
+    def test_gravacao_de_audio_ignora_o_visual(self):
+        pasta_audio = self.raiz / "gravacoes" / "2026-10-10_14-30"
+        pasta_audio.mkdir(parents=True)
+        (pasta_audio / "sistema.wav").write_bytes(b"x")
+        with mock.patch.object(cli, "_whisper", _whisper_falso):
+            codigo, out, _ = self.rodar(str(pasta_audio), "--visual", "aula", "--manter-audio")
+        self.assertEqual(codigo, 0)
+        self.assertIn("não se aplica", out)
+        self.detectar.assert_not_called()
 
 
 if __name__ == "__main__":
