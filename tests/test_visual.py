@@ -155,5 +155,64 @@ class TestPalpite(unittest.TestCase):
         self.assertEqual(sugerir_perfil(ind)[0], "nenhum")
 
 
+class TestLimparRuido(unittest.TestCase):
+    BARRA = "Arquivo Editar Visualização Histórico Favoritos Perfis"
+
+    def slides(self, textos):
+        return [visual.Slide(inicio=float(i), fim=float(i + 1), quadro_s=float(i), texto=t, confianca=80.0,
+                             frame=f"frames/{i + 1:04d}.jpg") for i, t in enumerate(textos)]
+
+    def test_linha_que_se_repete_em_muitos_slides_sai_do_texto(self):
+        slides = self.slides([f"{self.BARRA}\nConteúdo número {i} da aula" for i in range(6)])
+        limpos, ruido, descartados = visual.limpar_ruido(slides)
+        self.assertEqual([s.texto for s in limpos], [f"Conteúdo número {i} da aula" for i in range(6)])
+        self.assertEqual(ruido, [self.BARRA])
+        self.assertEqual(descartados, 0)
+
+    def test_pequenas_diferencas_do_ocr_na_mesma_barra_tambem_saem(self):
+        variacoes = [self.BARRA, self.BARRA.replace("Histórico", "Historico"), self.BARRA, self.BARRA + " |",
+                     self.BARRA, self.BARRA.replace("Perfis", "Perfls")]
+        slides = self.slides([f"{b}\nConteúdo número {i} da aula" for i, b in enumerate(variacoes)])
+        limpos, _, _ = visual.limpar_ruido(slides)
+        self.assertTrue(all(s.texto.startswith("Conteúdo número") and "\n" not in s.texto for s in limpos))
+
+    def test_slide_que_so_tinha_a_barra_ou_nunca_teve_texto_e_descartado_e_contado(self):
+        textos = [f"{self.BARRA}\nConteúdo {i} da aula toda" for i in range(5)] + [self.BARRA, ""]
+        limpos, _, descartados = visual.limpar_ruido(self.slides(textos))
+        self.assertEqual(len(limpos), 5)
+        self.assertEqual(descartados, 2)
+
+    def test_poucos_slides_nao_provam_o_que_e_fixo(self):
+        slides = self.slides([f"{self.BARRA}\nConteúdo {i}" for i in range(visual.RUIDO_SLIDES_MIN - 1)])
+        limpos, ruido, _ = visual.limpar_ruido(slides)
+        self.assertEqual([s.texto for s in limpos], [s.texto for s in slides])
+        self.assertEqual(ruido, [])
+
+    def test_linha_curta_repetida_nunca_e_ruido(self):
+        slides = self.slides([f"Sim\nConteúdo número {i} da aula" for i in range(8)])
+        limpos, ruido, _ = visual.limpar_ruido(slides)
+        self.assertTrue(all(s.texto.startswith("Sim\n") for s in limpos))
+        self.assertEqual(ruido, [])
+
+    def test_titulo_que_aparece_em_poucos_slides_fica(self):
+        textos = ["Título importante da seção 1"] + [f"Conteúdo número {i} da aula" for i in range(9)]
+        limpos, ruido, _ = visual.limpar_ruido(self.slides(textos))
+        self.assertEqual(limpos[0].texto, "Título importante da seção 1")
+        self.assertEqual(ruido, [])
+
+    def test_so_registra_as_mais_frequentes_e_nao_mexe_nos_originais(self):
+        fixas = [f"Linha fixa número {i} do navegador" for i in range(visual.RUIDO_MAX_LISTADAS + 3)]
+        slides = self.slides(["\n".join(fixas) + f"\nConteúdo {i} da aula" for i in range(6)])
+        original = slides[0].texto
+        _, ruido, _ = visual.limpar_ruido(slides)
+        self.assertEqual(len(ruido), visual.RUIDO_MAX_LISTADAS)
+        self.assertEqual(slides[0].texto, original)
+
+    def test_a_confianca_e_o_quadro_ficam(self):
+        slides = self.slides([f"{self.BARRA}\nConteúdo {i} da aula" for i in range(6)])
+        limpos, _, _ = visual.limpar_ruido(slides)
+        self.assertEqual((limpos[2].confianca, limpos[2].frame), (80.0, "frames/0003.jpg"))
+
+
 if __name__ == "__main__":
     unittest.main()

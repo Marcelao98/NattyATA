@@ -83,8 +83,10 @@ def montar(video, deteccao: Deteccao, destino, *, idiomas: str, exe: str, parame
            progresso=None, ferramentas: Ferramentas | None = None) -> dict:
     """
     Extrai o quadro de cada slide para `destino/frames/`, lê o texto, junta slides
-    vizinhos com texto quase igual e devolve o conteúdo do visual.json. Os quadros
-    dos slides que foram juntados são apagados.
+    vizinhos com texto quase igual e devolve o conteúdo do visual.json. Linhas que
+    se repetem em muitos slides (barra do navegador) saem do texto, e os slides sem
+    texto útil são descartados e contados. Os quadros dos slides que foram
+    juntados ou descartados são apagados.
     """
     f = ferramentas or Ferramentas()
     destino = Path(destino)
@@ -100,6 +102,9 @@ def montar(video, deteccao: Deteccao, destino, *, idiomas: str, exe: str, parame
         slide.texto, slide.confianca = leitura.texto, leitura.confianca
         slide.frame = f"{PASTA_FRAMES}/{imagem.name}"
 
+    # Primeiro tira o ruído fixo (barra do navegador...) e os slides sem texto; só
+    # depois junta os vizinhos parecidos, que sem o ruído ficam mais fáceis de achar.
+    slides, ruido, descartados = visual.limpar_ruido(slides)
     slides = visual.juntar_parecidos(slides)
     mantidos = {s.frame for s in slides}
     for arquivo in pasta_frames.glob("*.jpg") if pasta_frames.exists() else []:
@@ -113,6 +118,8 @@ def montar(video, deteccao: Deteccao, destino, *, idiomas: str, exe: str, parame
         "duracao_s": deteccao.info["duracao_s"],
         "resolucao": [deteccao.info["largura"], deteccao.info["altura"]],
         "truncado": deteccao.truncado,
+        "ruido_removido": ruido,                  # linhas fixas tiradas do texto (barra do navegador...)
+        "slides_sem_texto_descartados": descartados,  # telas sem texto útil (rosto, transição, só barra)
         "parametros": parametros or {},
         "eventos": [
             {"tipo": "slide", "inicio": round(s.inicio, 1), "fim": round(s.fim, 1), "texto": s.texto,

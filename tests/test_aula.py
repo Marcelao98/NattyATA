@@ -133,13 +133,29 @@ class TestMontar(unittest.TestCase):
             self.montar(f, tmp)
             self.assertFalse(antigo.exists())
 
-    def test_slide_sem_texto_fica_com_texto_vazio_e_sem_confianca(self):
+    def test_slide_sem_texto_e_descartado_e_contado_e_o_quadro_apagado(self):
         f = FerramentasFalsas(lambda s: "")
         with tempfile.TemporaryDirectory() as tmp:
             dados = self.montar(f, tmp)
-        self.assertEqual(dados["eventos"][0]["texto"], "")
-        self.assertIsNone(dados["eventos"][0]["confianca"])
-        self.assertEqual(len(dados["eventos"]), 3)  # sem texto, nada é juntado
+            frames = list((Path(tmp) / "frames").iterdir())
+        self.assertEqual(dados["eventos"], [])
+        self.assertEqual(dados["slides_sem_texto_descartados"], 3)
+        self.assertEqual(frames, [])
+
+    def test_barra_fixa_sai_do_texto_e_aparece_no_cabecalho(self):
+        barra = "Arquivo Editar Visualização Histórico Favoritos"
+        # 6 telas diferentes, todas com a mesma barra do navegador em cima
+        quadros_ = [tela(v) for v in (10, 60, 110, 160, 210, 250) for _ in range(3)]
+        assunto = ["derivadas", "integrais", "matrizes", "limites", "vetores", "séries"]
+        f = FerramentasFalsas(lambda s: f"{barra}\nConteúdo sobre {assunto[int(s // 3)]} começa aqui", quadros_=quadros_,
+                              info={"largura": 1280, "altura": 720, "duracao_s": 18.0})
+        with tempfile.TemporaryDirectory() as tmp:
+            dados = self.montar(f, tmp)
+        self.assertEqual(len(dados["eventos"]), 6)
+        self.assertTrue(all(barra not in e["texto"] for e in dados["eventos"]))
+        self.assertTrue(all(e["texto"].startswith("Conteúdo sobre") for e in dados["eventos"]))
+        self.assertEqual(dados["ruido_removido"], [barra])
+        self.assertEqual(dados["slides_sem_texto_descartados"], 0)
 
     def test_progresso(self):
         vistos = []
