@@ -32,7 +32,9 @@ Se faltar a pasta ou o foco, não adivinhe: devolva dizendo o que faltou.
    Em gravação (`fonte.json` com `tipo: "gravacao"`) cada segmento tem
    também `falante`: `eu` (o dono do microfone) ou `outros` (o som do PC).
    Registre quem disse cada coisa; não atribua a um falante o que o outro
-   disse.
+   disse. Numa gravação existem também `transcricao-eu.txt` e
+   `transcricao-outros.txt` (um canal só, com `[mm:ss]` em cada parágrafo) e
+   o `transcricao.txt` é a linha do tempo dos dois, com as frases inteiras.
 
 3. `visual.json`, **só se existir** (sem ele, ignore tudo sobre tela: vídeo
    de áudio ou sem `--visual` não tem). Foi gerado pelo código, não por
