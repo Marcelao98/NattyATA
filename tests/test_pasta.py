@@ -24,7 +24,8 @@ class TestPasta(unittest.TestCase):
             destino = Path(tmp) / "aula-x"
             txt = pasta.gravar(destino, {"tipo": "youtube", "titulo": "Aula"}, resultado)
 
-            self.assertEqual(txt.read_text(encoding="utf-8"), "Olá. Tudo bem?\n\nTchau.\n")
+            # `[mm:ss]` em cada parágrafo, em todas as fontes
+            self.assertEqual(txt.read_text(encoding="utf-8"), "[00:00] Olá. Tudo bem?\n\n[00:10] Tchau.\n")
             self.assertEqual(json.loads((destino / "fonte.json").read_text(encoding="utf-8"))["titulo"], "Aula")
             transcricao = json.loads((destino / "transcricao.json").read_text(encoding="utf-8"))
             self.assertEqual(transcricao["origem"], "legenda-manual")
@@ -82,7 +83,7 @@ class TestPasta(unittest.TestCase):
                               segmentos=[Segmento(0.0, 1.0, "oi", "eu"), Segmento(1.5, 2.0, "tudo bem?", "eu")])
         with tempfile.TemporaryDirectory() as tmp:
             txt = pasta.gravar(Path(tmp), fonte, resultado)
-            self.assertEqual(txt.read_text(encoding="utf-8"), "Eu: oi tudo bem?\n")
+            self.assertEqual(txt.read_text(encoding="utf-8"), "[00:00] Eu: oi tudo bem?\n")
             self.assertEqual(sorted(p.name for p in Path(tmp).iterdir()),
                              ["fonte.json", "transcricao.json", "transcricao.txt"])
             self.assertNotIn("faixas", json.loads((Path(tmp) / "transcricao.json").read_text(encoding="utf-8")))
