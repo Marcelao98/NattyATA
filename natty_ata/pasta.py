@@ -57,3 +57,21 @@ def gravar(pasta: Path, fonte: dict, resultado) -> Path:
     destino = pasta / "transcricao.txt"
     destino.write_text(texto.formatar(texto.juntar_em_paragrafos(resultado.segmentos)), encoding="utf-8")
     return destino
+
+
+def gravar_visual(pasta: Path, dados: dict) -> Path:
+    """
+    Escreve visual.json: o cabeçalho e depois um evento por linha (os agentes leem
+    por faixas de linhas, como na transcrição). `dados["eventos"]` é a lista de eventos.
+    """
+    pasta = Path(pasta)
+    pasta.mkdir(parents=True, exist_ok=True)
+    cabecalho = {k: v for k, v in dados.items() if k != "eventos"}
+    linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
+    eventos = [f"    {json.dumps(e, ensure_ascii=False)}" for e in dados.get("eventos", [])]
+    linhas.append('  "eventos": [')
+    if eventos:
+        linhas.append(",\n".join(eventos))
+    destino = pasta / "visual.json"
+    destino.write_text("{\n" + "\n".join(linhas) + "\n  ]\n}\n", encoding="utf-8")
+    return destino

@@ -39,7 +39,7 @@ MIN_CARACTERES_JUNTAR = 12  # texto curto demais não prova que o slide é o mes
 
 # Palpite do perfil (indicadores, só uma dica: quem decide é o usuário).
 TROCAS_POR_MIN_CORTE = 8.0
-PALAVRAS_POR_TELA_AULA = 12
+PALAVRAS_POR_TELA_AULA = 8
 
 
 @dataclass

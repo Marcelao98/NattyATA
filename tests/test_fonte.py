@@ -101,6 +101,13 @@ class TestFonte(unittest.TestCase):
         self.assertEqual(YoutubeDLDuble.criados[0].opcoes["format"], "bestaudio/best")
         self.assertEqual(audio.name, "audio.webm")
 
+    def test_baixar_video_so_imagem_ate_720p(self):
+        video = fonte.baixar_video("u", self.pasta, fabrica=YoutubeDLDuble)
+        formato = YoutubeDLDuble.criados[-1].opcoes["format"]
+        self.assertIn("height<=720", formato)
+        self.assertNotIn("audio", formato.replace("bestvideo", ""))  # não pede faixa de áudio
+        self.assertEqual(video.name, "video.webm")
+
     def test_erro_se_nada_foi_baixado(self):
         class NaoBaixa(YoutubeDLDuble):
             def download(self, urls):

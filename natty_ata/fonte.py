@@ -119,3 +119,19 @@ def baixar_audio(url: str, destino: Path, fabrica=None) -> Path:
     with fabrica(opcoes) as ydl:
         ydl.download([url])
     return _unico(Path(destino), "audio.*", "o áudio")
+
+
+ALTURA_VIDEO_MAX = 720  # texto de slide fica pequeno demais para o OCR em 480p
+
+
+def baixar_video(url: str, destino: Path, fabrica=None) -> Path:
+    """Baixa só a imagem (sem áudio), em até 720p. O vídeo é temporário: quem chama apaga."""
+    fabrica = fabrica or _fabrica_padrao()
+    h = ALTURA_VIDEO_MAX
+    opcoes = _opcoes(
+        format=f"bestvideo[height<={h}]/best[height<={h}]/bestvideo/best",
+        outtmpl={"default": str(Path(destino) / "video.%(ext)s")},
+    )
+    with fabrica(opcoes) as ydl:
+        ydl.download([url])
+    return _unico(Path(destino), "video.*", "o vídeo")

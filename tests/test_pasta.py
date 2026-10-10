@@ -43,6 +43,23 @@ class TestPasta(unittest.TestCase):
         self.assertEqual(segs[0], {"inicio": 0.0, "fim": 1.0, "texto": "oi", "falante": "eu"})
         self.assertEqual(segs[1], {"inicio": 2.0, "fim": 3.0, "texto": "olá"})
 
+    def test_gravar_visual_um_evento_por_linha(self):
+        dados = {"perfil": "aula", "ocr": "tesseract", "eventos": [
+            {"tipo": "slide", "inicio": 0.0, "fim": 4.0, "texto": "Linha 1\nLinha 2", "confianca": 96.2, "frame": "frames/0001.jpg"},
+            {"tipo": "slide", "inicio": 4.0, "fim": 9.0, "texto": "", "confianca": None, "frame": "frames/0002.jpg"},
+        ]}
+        with tempfile.TemporaryDirectory() as tmp:
+            destino = pasta.gravar_visual(Path(tmp) / "v", dados)
+            lido = json.loads(destino.read_text(encoding="utf-8"))
+            linhas = destino.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(lido, dados)
+        self.assertEqual(sum(1 for l in linhas if '"tipo": "slide"' in l), 2)  # um por linha, texto com \\n escapado
+
+    def test_gravar_visual_sem_eventos_continua_json_valido(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            destino = pasta.gravar_visual(Path(tmp), {"perfil": "aula", "eventos": []})
+            self.assertEqual(json.loads(destino.read_text(encoding="utf-8"))["eventos"], [])
+
     def test_gravar_sem_segmentos_continua_json_valido(self):
         resultado = Resultado(fonte="f", duracao_s=0.0, modelo=None, idioma="pt")
         with tempfile.TemporaryDirectory() as tmp:
