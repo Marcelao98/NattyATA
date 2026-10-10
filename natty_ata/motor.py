@@ -98,8 +98,25 @@ def _tokens_dos_termos(whisper, hotwords: str) -> int | None:
     return len(tokenizador.encode(" " + hotwords.strip()).ids)
 
 
+def limites_pelas_palavras(bruto) -> tuple:
+    """
+    (inicio, fim) do segmento bruto. Com `word_timestamps`, o segmento traz as
+    palavras e o horário vale da primeira à última: o Whisper, sozinho, às vezes
+    devolve um segmento que cobre silêncio ("Aham" com 37 s de duração). Sem
+    palavras, fica o horário do próprio segmento.
+    """
+    palavras = getattr(bruto, "words", None)
+    if palavras:
+        return palavras[0].start, palavras[-1].end
+    return bruto.start, bruto.end
+
+
 def _converter(brutos, deslocamento: float = 0.0) -> list:
-    return [Segmento(inicio=s.start + deslocamento, fim=s.end + deslocamento, texto=s.text.strip()) for s in brutos]
+    segmentos = []
+    for s in brutos:
+        inicio, fim = limites_pelas_palavras(s)
+        segmentos.append(Segmento(inicio=inicio + deslocamento, fim=fim + deslocamento, texto=s.text.strip()))
+    return segmentos
 
 
 def _refazer_suspeitos(whisper, array, duracao, segmentos, termos, opcoes) -> tuple:
@@ -135,6 +152,8 @@ def transcrever(
     modelo: str = MODELO_PADRAO,
     idioma: str | None = IDIOMA_PADRAO,
     hotwords: str | None = None,
+    palavras: bool = False,
+    vad_silencio_ms: int | None = None,
     progresso=None,
     carregar_audio=_audio.carregar,
     obter_modelo=carregar_modelo,
@@ -149,6 +168,12 @@ def transcrever(
     loop de repetição que a lista de termos da campanha causou na sessão real:
     depois da transcrição, os trechos com sinal de loop (ver repeticao.py) são
     refeitos sem os termos e ficam registrados em `Resultado.refeitos`.
+
+    `palavras` liga o `word_timestamps` do faster-whisper e ajusta o início e o
+    fim de cada segmento à primeira e à última palavra (custa um pouco mais de
+    tempo; a CLI só liga em gravação). `vad_silencio_ms` muda a pausa mínima que
+    o VAD usa para cortar a fala (sem ele, o faster-whisper usa 160 ms); fica
+    desligado a não ser que o usuário peça.
     """
     if idioma == "auto":
         idioma = None
@@ -162,6 +187,10 @@ def transcrever(
         condition_on_previous_text=False,
         beam_size=BEAM_SIZE,
     )
+    if palavras:
+        opcoes["word_timestamps"] = True
+    if vad_silencio_ms is not None:
+        opcoes["vad_parameters"] = {"min_silence_duration_ms": vad_silencio_ms}
     avisos = []
     if hotwords:
         opcoes["hotwords"] = hotwords
@@ -173,9 +202,10 @@ def transcrever(
 
     segmentos = []
     for s in brutos:  # gerador: a transcrição acontece aqui, segmento a segmento
-        segmentos.append(Segmento(inicio=s.start, fim=s.end, texto=s.text.strip()))
+        inicio, fim = limites_pelas_palavras(s)
+        segmentos.append(Segmento(inicio=inicio, fim=fim, texto=s.text.strip()))
         if progresso:
-            progresso(min(s.end, duracao), duracao)
+            progresso(min(fim, duracao), duracao)
 
     refeitos = []
     if hotwords:

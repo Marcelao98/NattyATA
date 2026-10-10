@@ -1,3 +1,4 @@
+import argparse
 import io
 import json
 import tempfile
@@ -395,6 +396,51 @@ class TestVisualCli(unittest.TestCase):
         self.assertEqual(codigo, 0)
         self.assertIn("não se aplica", out)
         self.detectar.assert_not_called()
+
+
+class TestOpcoesDoWhisper(unittest.TestCase):
+    """Horário por palavra e VAD chegam ao motor; o resto fica como estava."""
+
+    def chamar(self, *argv, em_gravacao=False):
+        args = cli._argumentos(["entrada.opus", *argv])
+        if em_gravacao:
+            args = argparse.Namespace(**{**vars(args), "em_gravacao": True})
+        resultado = Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt")
+        with mock.patch.object(cli.motor, "modelo_em_cache", return_value=True), \
+                mock.patch.object(cli.motor, "transcrever", return_value=resultado) as transcrever:
+            cli._whisper(Path("a.wav"), args, "pt")
+        return transcrever.call_args.kwargs
+
+    def test_arquivo_e_youtube_ficam_como_antes(self):
+        opcoes = self.chamar()
+        self.assertIs(opcoes["palavras"], False)
+        self.assertIsNone(opcoes["vad_silencio_ms"])
+
+    def test_gravacao_liga_o_horario_por_palavra_no_automatico(self):
+        self.assertIs(self.chamar(em_gravacao=True)["palavras"], True)
+
+    def test_nao_desliga_mesmo_em_gravacao_e_sim_liga_em_qualquer_caso(self):
+        self.assertIs(self.chamar("--horario-por-palavra", "nao", em_gravacao=True)["palavras"], False)
+        self.assertIs(self.chamar("--horario-por-palavra", "sim")["palavras"], True)
+
+    def test_vad_silencio_ms(self):
+        self.assertEqual(self.chamar("--vad-silencio-ms", "500")["vad_silencio_ms"], 500)
+
+    def test_do_gravacao_marca_as_duas_faixas_como_gravacao(self):
+        vistos = []
+
+        def whisper(caminho, args, idioma):
+            vistos.append(getattr(args, "em_gravacao", False))
+            return Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt", segmentos=[Segmento(0.0, 1.0, "oi")])
+
+        args = cli._argumentos(["gravacoes/2026-10-10_09-00"])
+        faixas = {"sistema": Path("sistema.wav"), "microfone": Path("microfone.wav")}
+        with mock.patch.object(gravacao, "faixas_na_pasta", return_value=faixas), \
+                mock.patch.object(cli, "_whisper", whisper), redirect_stdout(io.StringIO()):
+            _, dados, resultado = cli._do_gravacao(args, Path("gravacoes/2026-10-10_09-00"))
+        self.assertEqual(vistos, [True, True])
+        self.assertEqual(resultado.faixas, ["sistema", "microfone"])
+        self.assertFalse(getattr(args, "em_gravacao", False))  # os args originais não mudam
 
 
 if __name__ == "__main__":

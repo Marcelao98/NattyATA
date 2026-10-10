@@ -62,6 +62,85 @@ class TestParametros(unittest.TestCase):
         self.assertEqual(resultado.idioma, "en")
 
 
+class ModeloComPalavras(ModeloDuble):
+    """Como o WhisperModel com word_timestamps: cada segmento pode trazer `words`."""
+
+    def transcribe(self, audio, **opcoes):
+        self.audio, self.opcoes = audio, opcoes
+        brutos = (
+            SimpleNamespace(start=a, end=b, text=t,
+                            words=[SimpleNamespace(start=ini, end=fim, word=w) for ini, fim, w in palavras] if palavras else None)
+            for a, b, t, palavras in self.segmentos
+        )
+        return brutos, SimpleNamespace(language=self.idioma)
+
+
+class TestHorarioPorPalavra(unittest.TestCase):
+    # Caso real da gravação: "Aham" saiu como {"inicio": 0.02, "fim": 37.86}.
+    def test_segmento_com_palavras_vale_da_primeira_a_ultima_palavra(self):
+        duble = ModeloComPalavras([(0.02, 37.86, " Aham", [(12.1, 12.6, " Aham")]),
+                                   (40.0, 48.0, " Tudo bem?", [(40.5, 41.0, " Tudo"), (41.1, 41.6, " bem?")])])
+        r = transcrever(duble, duracao=60.0, palavras=True)
+        self.assertEqual([(s.inicio, s.fim, s.texto) for s in r.segmentos],
+                         [(12.1, 12.6, "Aham"), (40.5, 41.6, "Tudo bem?")])
+
+    def test_segmento_sem_palavras_fica_como_esta(self):
+        duble = ModeloComPalavras([(1.0, 3.0, " Sem palavras", None), (4.0, 6.0, " Lista vazia", [])])
+        r = transcrever(duble, palavras=True)
+        self.assertEqual([(s.inicio, s.fim) for s in r.segmentos], [(1.0, 3.0), (4.0, 6.0)])
+
+    def test_modelo_sem_atributo_words_funciona(self):
+        r = transcrever(ModeloDuble([(0.0, 2.0, "oi")]), palavras=True)
+        self.assertEqual((r.segmentos[0].inicio, r.segmentos[0].fim), (0.0, 2.0))
+
+    def test_word_timestamps_so_liga_quando_pedido(self):
+        duble = ModeloDuble()
+        transcrever(duble)
+        self.assertNotIn("word_timestamps", duble.opcoes)
+        transcrever(duble, palavras=True)
+        self.assertIs(duble.opcoes["word_timestamps"], True)
+        # os parâmetros provados continuam intactos
+        self.assertEqual(duble.opcoes["language"], "pt")
+        self.assertIs(duble.opcoes["vad_filter"], True)
+        self.assertIs(duble.opcoes["condition_on_previous_text"], False)
+        self.assertIsInstance(duble.audio, np.ndarray)
+
+    def test_o_trecho_refeito_tambem_usa_o_horario_das_palavras(self):
+        class Duble(ModeloDuble):
+            """Com hotwords entra em loop no 2º segmento; o refeito traz palavras com horário próprio."""
+
+            def transcribe(self, audio, **opcoes):
+                self.opcoes = opcoes
+                if "hotwords" in opcoes:
+                    brutos = [SimpleNamespace(start=0.0, end=4.0, text="A call dá direito de compra.", words=None),
+                              SimpleNamespace(start=5.0, end=9.0, text="Call, put, strike, notional, delta.", words=None),
+                              SimpleNamespace(start=10.0, end=14.0, text="Fim da aula.", words=None)]
+                else:
+                    brutos = [SimpleNamespace(start=0.0, end=3.5, text="O notional é quantidade vezes strike.",
+                                              words=[SimpleNamespace(start=0.5, end=3.0, word="x")])]
+                return iter(brutos), SimpleNamespace(language="pt")
+
+        duble = Duble()
+        r = transcrever(duble, duracao=15.0, hotwords="call, put, strike, notional, delta", palavras=True)
+        self.assertTrue(r.refeitos)
+        self.assertIs(duble.opcoes["word_timestamps"], True)  # o refazer herda as opções
+        # janela refeita começa em 4.5 s; as palavras vão de 0.5 a 3.0 dentro dela
+        self.assertEqual((r.segmentos[1].inicio, r.segmentos[1].fim), (5.0, 7.5))
+
+
+class TestVadSilencio(unittest.TestCase):
+    def test_desligado_por_padrao(self):
+        duble = ModeloDuble()
+        transcrever(duble)
+        self.assertNotIn("vad_parameters", duble.opcoes)
+
+    def test_passa_a_pausa_minima_ao_vad(self):
+        duble = ModeloDuble()
+        transcrever(duble, vad_silencio_ms=500)
+        self.assertEqual(duble.opcoes["vad_parameters"], {"min_silence_duration_ms": 500})
+        self.assertIs(duble.opcoes["vad_filter"], True)
+
+
 class TestResultado(unittest.TestCase):
     def test_segmentos_e_metadados(self):
         duble = ModeloDuble([(0.0, 2.5, " Olá, mesa. "), (3.0, 6.0, "Rolem iniciativa.")])

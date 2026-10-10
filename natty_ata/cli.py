@@ -42,6 +42,12 @@ def _opcoes_comuns(p) -> None:
                    help="gravação: apaga os .wav depois de transcrever, sem perguntar")
     p.add_argument("--manter-audio", dest="apagar_audio", action="store_false", default=None,
                    help="gravação: guarda os .wav depois de transcrever, sem perguntar")
+    p.add_argument("--horario-por-palavra", dest="horario_por_palavra", choices=("auto", "sim", "nao"), default="auto",
+                   help="ajusta o início e o fim de cada trecho à primeira e à última palavra (gasta mais tempo). "
+                        "'auto' (padrão) liga só em gravação; 'sim' liga sempre; 'nao' desliga")
+    p.add_argument("--vad-silencio-ms", dest="vad_silencio_ms", type=int, default=None, metavar="MS",
+                   help="experimental: pausa mínima (ms) que corta a fala no filtro de voz do Whisper. "
+                        "Sem a opção, fica o padrão do faster-whisper (160)")
 
 
 def _argumentos(argv):
@@ -68,9 +74,12 @@ def _whisper(caminho, args, idioma):
         print(f"Primeira execução com '{args.modelo}': o modelo (cerca de 1,5 GB) vai ser baixado "
               "pro cache do Hugging Face. Isso só acontece uma vez.")
     print("Transcrevendo com Whisper...")
+    modo = getattr(args, "horario_por_palavra", "auto")
+    palavras = modo == "sim" or (modo == "auto" and getattr(args, "em_gravacao", False))
     try:
-        resultado = motor.transcrever(caminho, modelo=args.modelo, idioma=idioma,
-                                      hotwords=hotwords, progresso=_mostrar_progresso)
+        resultado = motor.transcrever(caminho, modelo=args.modelo, idioma=idioma, hotwords=hotwords,
+                                      palavras=palavras, vad_silencio_ms=getattr(args, "vad_silencio_ms", None),
+                                      progresso=_mostrar_progresso)
     except (FileNotFoundError, FfmpegAusente, ErroDeDecodificacao) as e:
         raise Erro(str(e)) from e
     print()
@@ -164,10 +173,11 @@ def _do_gravacao(args, pasta_audio: Path):
     if not faixas:
         raise Erro(f"não achei sistema.wav nem microfone.wav em {pasta_audio}")
     idioma = None if args.lang == "auto" else args.lang
+    args_faixa = argparse.Namespace(**{**vars(args), "em_gravacao": True})
     resultados = {}
     for nome, caminho in faixas.items():
         print(f"Faixa '{nome}'...")
-        resultados[nome] = _whisper(caminho, args, idioma)
+        resultados[nome] = _whisper(caminho, args_faixa, idioma)
     resultado = gravacao.juntar_faixas(resultados)
     dados = {"tipo": "gravacao", "titulo": f"Gravação {pasta_audio.name}", "data": pasta_audio.name,
              "duracao_s": resultado.duracao_s, "faixas": list(faixas), "falantes": gravacao.FALANTES}
