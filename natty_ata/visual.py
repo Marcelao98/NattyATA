@@ -15,9 +15,22 @@ from difflib import SequenceMatcher
 import numpy as np
 
 INTERVALO_S = 1.0           # de quanto em quanto tempo um quadro é comparado
-# Fração da tela que precisa mudar para contar como troca. Ignora a bolinha da
-# câmera do professor, o cursor e uma letra sendo digitada.
-LIMIAR_MUDANCA = 0.03
+# Fração da tela que precisa mudar para contar como troca. Medido num vídeo de
+# teste: trocar o texto de um slide de fundo branco muda só 1% a 2% dos pixels,
+# então o limiar tem que ser baixo. Câmera do professor e ruído não entram aqui:
+# são tirados pela máscara de movimento constante (abaixo).
+LIMIAR_MUDANCA = 0.005
+# Máscara de movimento constante, por blocos de BLOCO x BLOCO pixels do quadro
+# pequeno. Um bloco "mexe" num quadro quando mais de BLOCO_ATIVO dele mudou; a
+# média móvel disso passando de LIMITE_MOVIMENTO (mexeu na maioria dos quadros)
+# marca o bloco como câmera ou ruído, e ele sai da conta. Texto de slide só muda
+# na troca e nunca chega lá. Por bloco, e não por pixel, porque uma câmera
+# real muda só parte dos pixels a cada segundo. O peso baixo impede que uma
+# animação de poucos quadros mascare o slide novo.
+BLOCO = 10
+BLOCO_ATIVO = 0.05
+PESO_MOVIMENTO = 0.05
+LIMITE_MOVIMENTO = 0.4
 DIFERENCA_PIXEL = 25        # diferença de cinza (0-255) para um pixel contar como mudado
 AMOSTRAS_ESTAVEIS = 2       # quadros seguidos parados antes de aceitar a troca (espera a animação)
 MAX_SLIDES = 300            # teto: uma aula de 3 h não pode gerar milhares de quadros
@@ -39,9 +52,39 @@ class Slide:
     frame: str | None = None         # caminho do JPG, relativo à pasta do vídeo
 
 
-def fracao_mudada(a: np.ndarray, b: np.ndarray, diferenca: int = DIFERENCA_PIXEL) -> float:
-    """Fração de pixels cuja diferença de cinza passa de `diferenca` (0 a 1)."""
-    return float((np.abs(a.astype(np.int16) - b.astype(np.int16)) > diferenca).mean())
+def _mudou(a: np.ndarray, b: np.ndarray, diferenca: int = DIFERENCA_PIXEL) -> np.ndarray:
+    return np.abs(a.astype(np.int16) - b.astype(np.int16)) > diferenca
+
+
+def _blocos_ativos(mudou: np.ndarray) -> np.ndarray:
+    """Matriz (blocos de altura x blocos de largura) com 1.0 onde o bloco mexeu neste quadro."""
+    altura, largura = mudou.shape
+    bh, bw = altura // BLOCO, largura // BLOCO
+    if bh == 0 or bw == 0:
+        return np.zeros((0, 0), dtype=np.float32)
+    fracao = mudou[: bh * BLOCO, : bw * BLOCO].reshape(bh, BLOCO, bw, BLOCO).mean(axis=(1, 3))
+    return (fracao > BLOCO_ATIVO).astype(np.float32)
+
+
+def _mascara(movimento: np.ndarray, forma: tuple) -> np.ndarray:
+    """Blocos que mexem demais -> máscara no tamanho do quadro (True = ignorar)."""
+    cheia = np.repeat(np.repeat(movimento > LIMITE_MOVIMENTO, BLOCO, axis=0), BLOCO, axis=1)
+    mascara = np.zeros(forma, dtype=bool)
+    mascara[: cheia.shape[0], : cheia.shape[1]] = cheia
+    return mascara
+
+
+def fracao_mudada(a: np.ndarray, b: np.ndarray, diferenca: int = DIFERENCA_PIXEL, mascara=None) -> float:
+    """
+    Fração de pixels cuja diferença de cinza passa de `diferenca` (0 a 1). Pixels
+    em `mascara` (True = ignorar) não entram na conta, nem no total.
+    """
+    mudou = _mudou(a, b, diferenca)
+    if mascara is None:
+        return float(mudou.mean())
+    validos = ~mascara
+    n = int(validos.sum())
+    return float(mudou[validos].sum() / n) if n else 0.0
 
 
 def detectar_trocas(quadros, *, intervalo: float = INTERVALO_S, limiar: float = LIMIAR_MUDANCA,
@@ -52,10 +95,13 @@ def detectar_trocas(quadros, *, intervalo: float = INTERVALO_S, limiar: float = 
     que `limiar` em relação ao último slide e depois ficou parada por `estaveis`
     quadros; o `inicio` é o primeiro quadro que mudou, e o `quadro_s` o estável.
     Mudança que volta ao slide anterior (piscada, animação que desfaz) não conta.
+    Regiões que mexem o tempo todo (câmera do professor, ruído) são ignoradas.
     """
     slides = []
     referencia = anterior = None
     pendente = None  # índice do primeiro quadro que mudou
+    movimento = None  # média móvel, por bloco, de quanto ele mexe; aprende o que é câmera/ruído
+    mascara = None
     parados = 0
     total = 0
     truncado = False
@@ -73,21 +119,26 @@ def detectar_trocas(quadros, *, intervalo: float = INTERVALO_S, limiar: float = 
     for i, quadro in enumerate(quadros):
         total = i + 1
         ultimo = quadro
+        if anterior is not None:
+            ativos = _blocos_ativos(_mudou(quadro, anterior))
+            movimento = ativos * PESO_MOVIMENTO if movimento is None else movimento * (1 - PESO_MOVIMENTO) + ativos * PESO_MOVIMENTO
+            mascara = _mascara(movimento, quadro.shape)
         if referencia is None and pendente is None:
             pendente, parados = i, 1  # o primeiro quadro conta como mudança em relação a "nada"
         elif pendente is None:
-            if fracao_mudada(quadro, referencia) > limiar:
+            if fracao_mudada(quadro, referencia, mascara=mascara) > limiar:
                 pendente, parados = i, 1
         else:
-            parados = parados + 1 if fracao_mudada(quadro, anterior) <= limiar else 1
+            parados = parados + 1 if fracao_mudada(quadro, anterior, mascara=mascara) <= limiar else 1
         if pendente is not None and parados >= estaveis:
-            if referencia is None or fracao_mudada(quadro, referencia) > limiar:
+            if referencia is None or fracao_mudada(quadro, referencia, mascara=mascara) > limiar:
                 aceitar(pendente, i, quadro)
             else:
                 pendente = None  # voltou ao mesmo slide: era piscada
         anterior = quadro
 
-    if pendente is not None and ultimo is not None and (referencia is None or fracao_mudada(ultimo, referencia) > limiar):
+    if pendente is not None and ultimo is not None and (
+            referencia is None or fracao_mudada(ultimo, referencia, mascara=mascara) > limiar):
         aceitar(pendente, total - 1, ultimo)  # o vídeo acabou no meio da troca
 
     for atual, proximo in zip(slides, slides[1:]):

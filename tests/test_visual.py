@@ -6,7 +6,7 @@ from natty_ata import visual
 from natty_ata.visual import Slide, detectar_trocas, indicadores, juntar_parecidos, sugerir_perfil
 
 
-def tela(valor, altura=18, largura=32):
+def tela(valor, altura=180, largura=320):
     return np.full((altura, largura), valor, dtype=np.uint8)
 
 
@@ -43,10 +43,34 @@ class TestDetectarTrocas(unittest.TestCase):
         self.assertEqual(slides[1].inicio, 5.0)             # começou a mudar aqui
         self.assertGreaterEqual(slides[1].quadro_s, 9.0)    # mas o quadro bom é o parado, depois de 3 animados
 
-    def test_bolinha_da_camera_nao_conta(self):
+    def test_camera_em_movimento_constante_nao_conta(self):
+        # a "câmera" (3% da tela) muda a cada quadro durante 60 s; a tela de fundo não muda
         base = tela(10)
-        quadros = [base, com_bolinha(base), base, com_bolinha(base, 0.02)] * 3
+        quadros = [com_bolinha(base, 0.03) if i % 2 else base for i in range(60)]
         slides, _ = detectar_trocas(quadros)
+        self.assertEqual(len(slides), 1)
+
+    def test_troca_de_slide_com_a_camera_mexendo_ainda_e_detectada(self):
+        a, b = tela(10), tela(10)
+        b[:, :3] = 240  # o "texto novo": uma faixa de 1% da tela
+        quadros = [com_bolinha(a if i < 40 else b, 0.03) if i % 2 else (a if i < 40 else b) for i in range(80)]
+        slides, _ = detectar_trocas(quadros)
+        self.assertEqual(len(slides), 2)
+        self.assertAlmostEqual(slides[1].inicio, 40.0, delta=2.0)
+
+    def test_texto_pequeno_que_muda_pouca_coisa_e_detectado(self):
+        # 1,5% da tela mudou (o caso real de slide branco com texto)
+        a = tela(255)
+        b = a.copy()
+        b.reshape(-1)[: int(b.size * 0.015)] = 0
+        slides, _ = detectar_trocas([a] * 5 + [b] * 5)
+        self.assertEqual(len(slides), 2)
+
+    def test_mudanca_minuscula_como_cursor_nao_conta(self):
+        a = tela(255)
+        b = a.copy()
+        b.reshape(-1)[:20] = 0  # um cursor: 20 de 57.600 pixels
+        slides, _ = detectar_trocas([a] * 5 + [b] * 5)
         self.assertEqual(len(slides), 1)
 
     def test_piscada_que_volta_ao_mesmo_slide_nao_conta(self):
