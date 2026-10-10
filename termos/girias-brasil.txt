@@ -1,0 +1,34 @@
+# Gírias e expressões do dia a dia no Brasil para o --termos.
+# O Whisper tende a trocar gíria por palavra comum: "paia" virou "pai" numa
+# chamada real. Só entra o que ele erra ou que costuma sumir da transcrição.
+# O Whisper usa no máximo ~223 tokens da lista (o programa avisa se passar).
+# Atenção: com expressões muito comuns ("tipo", "mano"), um trecho falado só
+# com elas pode parecer eco da lista e ser refeito sem os termos (só custa
+# um pouco de tempo; o texto refeito vale).
+
+mano
+tipo
+sacou
+tá ligado
+de boa
+grana
+rolê
+paia
+firmeza
+bora
+véi
+mermão
+trampo
+perrengue
+zoeira
+suave
+massa
+bagulho
+parada
+tranquilo
+valeu
+fala aí
+beleza
+cara
+pô
+mó

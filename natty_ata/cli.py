@@ -36,7 +36,9 @@ def _opcoes_comuns(p) -> None:
     """Opções que `ata` e `ata gravar` compartilham (o que o Whisper e a pasta de saída precisam)."""
     p.add_argument("--modelo", default=motor.MODELO_PADRAO, help=f"modelo do faster-whisper (padrão: {motor.MODELO_PADRAO})")
     p.add_argument("--lang", default=motor.IDIOMA_PADRAO, help="idioma (padrão: pt; 'auto' usa o do vídeo ou detecta)")
-    p.add_argument("--termos", type=Path, help="arquivo .txt com termos, um por linha (vira hotwords do Whisper)")
+    p.add_argument("--termos", type=Path, nargs="+", action="extend", metavar="ARQUIVO",
+                   help="um ou mais arquivos .txt com termos, um por linha (viram hotwords do Whisper; o limite de "
+                        "~223 tokens vale para a soma). Ex.: --termos termos/tecnologia-ia.txt termos/girias-brasil.txt")
     p.add_argument("--saida", type=Path, default=Path("transcricoes"), help="pasta de saída (padrão: transcricoes/)")
     p.add_argument("--apagar-audio", dest="apagar_audio", action="store_true", default=None,
                    help="gravação: apaga os .wav depois de transcrever, sem perguntar")
@@ -69,7 +71,7 @@ def _argumentos(argv):
 def _whisper(caminho, args, idioma):
     hotwords = None
     if args.termos:
-        hotwords = motor.ler_termos(args.termos.read_text(encoding="utf-8")) or None
+        hotwords = motor.combinar_termos(c.read_text(encoding="utf-8") for c in args.termos) or None
     if not motor.modelo_em_cache(args.modelo):
         print(f"Primeira execução com '{args.modelo}': o modelo (cerca de 1,5 GB) vai ser baixado "
               "pro cache do Hugging Face. Isso só acontece uma vez.")

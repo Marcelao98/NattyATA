@@ -407,7 +407,8 @@ class TestOpcoesDoWhisper(unittest.TestCase):
             args = argparse.Namespace(**{**vars(args), "em_gravacao": True})
         resultado = Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt")
         with mock.patch.object(cli.motor, "modelo_em_cache", return_value=True), \
-                mock.patch.object(cli.motor, "transcrever", return_value=resultado) as transcrever:
+                mock.patch.object(cli.motor, "transcrever", return_value=resultado) as transcrever, \
+                redirect_stdout(io.StringIO()):
             cli._whisper(Path("a.wav"), args, "pt")
         return transcrever.call_args.kwargs
 
@@ -422,6 +423,22 @@ class TestOpcoesDoWhisper(unittest.TestCase):
     def test_nao_desliga_mesmo_em_gravacao_e_sim_liga_em_qualquer_caso(self):
         self.assertIs(self.chamar("--horario-por-palavra", "nao", em_gravacao=True)["palavras"], False)
         self.assertIs(self.chamar("--horario-por-palavra", "sim")["palavras"], True)
+
+    def test_termos_aceita_varios_arquivos_e_junta_sem_repetir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp) / "a.txt", Path(tmp) / "b.txt"
+            a.write_text("IA\nClaude\n", encoding="utf-8")
+            b.write_text("mano\nia\n", encoding="utf-8")
+            self.assertEqual(self.chamar("--termos", str(a), str(b))["hotwords"], "IA, Claude, mano")
+            # repetindo a opção também vale
+            self.assertEqual(self.chamar("--termos", str(a), "--termos", str(b))["hotwords"], "IA, Claude, mano")
+            # a entrada pode vir depois dos arquivos, separada por --
+            args = cli._argumentos(["--termos", str(a), str(b), "--", "entrada.opus"])
+            self.assertEqual(args.entrada, "entrada.opus")
+            self.assertEqual(args.termos, [a, b])
+
+    def test_sem_termos_nao_manda_hotwords(self):
+        self.assertIsNone(self.chamar()["hotwords"])
 
     def test_vad_silencio_ms(self):
         self.assertEqual(self.chamar("--vad-silencio-ms", "500")["vad_silencio_ms"], 500)

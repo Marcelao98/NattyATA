@@ -80,13 +80,32 @@ def carregar_modelo(nome: str = MODELO_PADRAO):
     return _MODELOS[nome]
 
 
-def ler_termos(texto: str) -> str:
-    """Conteúdo do arquivo de termos (um por linha, # comenta) -> string de hotwords."""
+def _termos_do_texto(texto: str) -> list:
     termos = []
     for linha in texto.splitlines():
         linha = linha.split("#", 1)[0].strip()
         if linha:
             termos.append(linha)
+    return termos
+
+
+def ler_termos(texto: str) -> str:
+    """Conteúdo do arquivo de termos (um por linha, # comenta) -> string de hotwords."""
+    return ", ".join(_termos_do_texto(texto))
+
+
+def combinar_termos(textos) -> str:
+    """
+    Vários arquivos de termos -> uma string de hotwords só, na ordem dos arquivos,
+    sem repetir termo (maiúscula e minúscula contam como o mesmo). O limite de
+    tokens vale para a soma: `transcrever` avisa se passar.
+    """
+    vistos, termos = set(), []
+    for texto in textos:
+        for termo in _termos_do_texto(texto):
+            if termo.lower() not in vistos:
+                vistos.add(termo.lower())
+                termos.append(termo)
     return ", ".join(termos)
 
 

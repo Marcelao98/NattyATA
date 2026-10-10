@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -214,6 +215,72 @@ class TestTermos(unittest.TestCase):
     def test_um_por_linha_ignorando_vazios_e_comentarios(self):
         conteudo = "# nomes da campanha\nNhalor\n\n  Vorric  \nElijah Vorren # NPC\n"
         self.assertEqual(motor.ler_termos(conteudo), "Nhalor, Vorric, Elijah Vorren")
+
+
+class TestCombinarTermos(unittest.TestCase):
+    def test_junta_na_ordem_e_sem_repetir_termo(self):
+        a = "# tech\nIA\nClaude\n"
+        b = "mano\nclaude  # repetido, minúscula\nIA\ntá ligado\n"
+        self.assertEqual(motor.combinar_termos([a, b]), "IA, Claude, mano, tá ligado")
+
+    def test_um_arquivo_so_e_igual_a_ler_termos(self):
+        conteudo = "# nomes\nNhalor\nVorric\n"
+        self.assertEqual(motor.combinar_termos([conteudo]), motor.ler_termos(conteudo))
+
+    def test_nada_vira_string_vazia(self):
+        self.assertEqual(motor.combinar_termos([]), "")
+        self.assertEqual(motor.combinar_termos(["# só comentário\n"]), "")
+
+    def test_a_soma_das_listas_e_avisada_quando_passa_do_limite(self):
+        class Tokenizador:
+            def encode(self, texto):
+                return type("E", (), {"ids": texto.split()})()
+
+        a = "\n".join(f"alfa{i}" for i in range(120))
+        b = "\n".join(f"beta{i}" for i in range(120))
+        for lista in (a, b):  # cada uma sozinha cabe
+            duble = ModeloDuble()
+            duble.hf_tokenizer = Tokenizador()
+            self.assertEqual(transcrever(duble, hotwords=motor.combinar_termos([lista])).avisos, [])
+        duble = ModeloDuble()
+        duble.hf_tokenizer = Tokenizador()
+        r = transcrever(duble, hotwords=motor.combinar_termos([a, b]))  # juntas passam de 223
+        self.assertTrue(any("tokens" in aviso for aviso in r.avisos))
+
+
+class TestListasDeTermos(unittest.TestCase):
+    PASTA = Path(__file__).resolve().parent.parent / "termos"
+    # Sem o tokenizador do Whisper aqui, o teste usa uma estimativa pessimista
+    # (2 caracteres por token; em português costuma dar 2,5 a 3,5): a lista
+    # sozinha tem que caber nos ~223 tokens que o Whisper usa.
+    MAX_CARACTERES = 223 * 2
+
+    def listas(self):
+        return sorted(self.PASTA.glob("*.txt"))
+
+    def test_as_listas_novas_existem_e_carregam(self):
+        for nome in ("tecnologia-ia", "girias-brasil", "mercado-financeiro"):
+            termos = motor.ler_termos((self.PASTA / f"{nome}.txt").read_text(encoding="utf-8"))
+            self.assertTrue(termos, nome)
+
+    def test_termos_pedidos_estao_nas_listas(self):
+        tecnologia = motor.ler_termos((self.PASTA / "tecnologia-ia.txt").read_text(encoding="utf-8")).split(", ")
+        for termo in ("IA", "Claude", "Claude Code", "ChatGPT", "LLM", "prompt", "API", "GitHub", "Python",
+                      "TikTok", "TCC", "Libras", "capacitação"):
+            self.assertIn(termo, tecnologia)
+        girias = motor.ler_termos((self.PASTA / "girias-brasil.txt").read_text(encoding="utf-8")).split(", ")
+        for termo in ("mano", "tipo", "sacou", "tá ligado", "de boa", "grana", "rolê", "paia"):
+            self.assertIn(termo, girias)
+
+    def test_cada_lista_cabe_no_limite_do_whisper_pela_estimativa_pessimista(self):
+        for arquivo in self.listas():
+            termos = motor.ler_termos(arquivo.read_text(encoding="utf-8"))
+            self.assertLessEqual(len(termos), self.MAX_CARACTERES, arquivo.name)
+
+    def test_sem_termo_repetido_dentro_da_lista(self):
+        for arquivo in self.listas():
+            termos = [t.lower() for t in motor.ler_termos(arquivo.read_text(encoding="utf-8")).split(", ")]
+            self.assertEqual(len(termos), len(set(termos)), arquivo.name)
 
 
 class TestCarregamentoPreguicoso(unittest.TestCase):
