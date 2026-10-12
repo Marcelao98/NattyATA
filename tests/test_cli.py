@@ -761,6 +761,19 @@ class TestPerfilNaCli(unittest.TestCase):
         self.assertIn("não existe", erro)
 
 
+class TestLegendaNaCli(unittest.TestCase):
+    def test_gera_srt_e_erra_sem_transcricao(self):
+        with tempfile.TemporaryDirectory() as d:
+            erro = io.StringIO()
+            with redirect_stderr(erro):
+                self.assertEqual(cli.main(["legenda", d]), 1)
+            self.assertIn("Transcreva", erro.getvalue())
+            (Path(d) / "transcricao.json").write_text(json.dumps({"segmentos": [{"inicio": 0, "fim": 1, "texto": "oi"}]}))
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(["legenda", d, "--formato", "srt", "vtt"]), 0)
+            self.assertTrue((Path(d) / "legenda.vtt").is_file())
+
+
 class TestBuscarNaCli(unittest.TestCase):
     def test_subcomando_buscar_chama_o_modulo(self):
         import tempfile
