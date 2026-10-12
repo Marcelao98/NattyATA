@@ -1,0 +1,122 @@
+"""
+Roda a Vatty de verdade para a fila da interface: um subprocesso `python -m vatty.cli ...`.
+
+Usar o próprio comando (em vez de chamar as funções) mantém a tela igual ao terminal: o log que a
+pessoa vê é o que a CLI imprime, e o painel de terminal só roda comandos `vatty`. Nada de shell livre.
+"""
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+from .fila import Cancelado
+
+OPCOES_TEXTO = ("legenda", "whisper")
+OPCOES_VISUAL = ("nenhum", "aula")
+OPCOES_PRE = ("sim", "nao")
+RE_PROGRESSO = re.compile(r"^\s*(\d{1,3})%")
+RE_PRONTO = re.compile(r"^Pronto em .*?\): (.+)$")
+RE_URL = re.compile(r"^https?://\S+$", re.IGNORECASE)
+
+ETAPAS = (  # trecho da saída da CLI -> etapa mostrada na tela
+    ("Lendo o vídeo", "Lendo o vídeo"),
+    ("Baixando o áudio", "Baixando o áudio"),
+    ("Transcrevendo", "Ouvindo"),
+    ("Separando os falantes", "Separando os falantes"),
+    ("Reconhecendo as vozes", "Reconhecendo as vozes"),
+    ("Procurando as trocas de tela", "Olhando a tela"),
+    ("Lendo o texto de", "Lendo os slides"),
+    ("Baixando o vídeo", "Baixando o vídeo"),
+)
+
+
+class EntradaInvalida(ValueError):
+    pass
+
+
+def validar_entrada(entrada: str) -> str:
+    """URL http(s) ou caminho de arquivo/pasta. Recusa o que a CLI leria como opção (começa com '-')."""
+    entrada = entrada.strip()
+    if not entrada or entrada.startswith("-"):
+        raise EntradaInvalida("Entrada inválida.")
+    if RE_URL.match(entrada) or Path(entrada).exists():
+        return entrada
+    raise EntradaInvalida(f"Não achei o arquivo nem entendi o link: {entrada}")
+
+
+def montar_argv(entrada: str, opcoes: dict, saida, python: str = sys.executable) -> list:
+    """Só opções conhecidas e com valor válido viram argumentos; o resto é ignorado."""
+    argv = [python, "-m", "vatty.cli", validar_entrada(entrada), "--saida", str(saida),
+            "--texto", opcoes.get("texto") if opcoes.get("texto") in OPCOES_TEXTO else "whisper",
+            "--visual", opcoes.get("visual") if opcoes.get("visual") in OPCOES_VISUAL else "nenhum",
+            "--preprocessar", opcoes.get("preprocessar") if opcoes.get("preprocessar") in OPCOES_PRE else "nao"]
+    falantes = str(opcoes.get("falantes", "nao")).lower()
+    if falantes in ("auto", "perfis") or (falantes.isdigit() and int(falantes) >= 1):
+        argv += ["--falantes", falantes]
+    lang = str(opcoes.get("lang", "")).strip()
+    if re.fullmatch(r"[a-z]{2,3}|auto", lang):
+        argv += ["--lang", lang]
+    glossario = opcoes.get("glossario")
+    if glossario and Path(glossario).is_file():
+        argv += ["--glossario", str(glossario)]
+    return argv
+
+
+def interpretar(linha: str):
+    """Linha da CLI -> (percentual ou None, etapa ou None)."""
+    achou = RE_PROGRESSO.match(linha)
+    if achou:
+        return min(100, int(achou.group(1))), "Ouvindo"
+    for trecho, etapa in ETAPAS:
+        if trecho in linha:
+            return None, etapa
+    return None, None
+
+
+def _linhas(fluxo):
+    """Separa a saída por '\\n' e por '\\r' (a barra de progresso da CLI reescreve a linha com '\\r')."""
+    resto = ""
+    while True:
+        bloco = fluxo.read1(1024) if hasattr(fluxo, "read1") else fluxo.read(1024)
+        if not bloco:
+            break
+        resto += bloco.decode("utf-8", errors="replace")
+        partes = re.split(r"[\r\n]", resto)
+        resto = partes.pop()
+        for p in partes:
+            if p.strip():
+                yield p
+    if resto.strip():
+        yield resto
+
+
+def executar(trabalho, ctx, saida, popen=subprocess.Popen) -> str:
+    """Roda a CLI para o trabalho. Devolve a pasta do vídeo. `popen` entra por parâmetro para os testes."""
+    argv = montar_argv(trabalho.entrada, trabalho.opcoes, saida)
+    proc = popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    pasta, ultima_erro = None, ""
+    try:
+        for linha in _linhas(proc.stdout):
+            if ctx.cancelado:
+                proc.terminate()
+                raise Cancelado()
+            percentual, etapa = interpretar(linha)
+            if percentual is None:
+                ctx.log(linha)
+            if percentual is not None or etapa:
+                ctx.progresso(percentual, etapa)
+            achou = RE_PRONTO.match(linha)
+            if achou:
+                pasta = achou.group(1).strip()
+            if linha.startswith("Erro"):
+                ultima_erro = linha
+        codigo = proc.wait()
+    except Cancelado:
+        proc.wait()
+        raise
+    if codigo != 0:
+        raise RuntimeError(ultima_erro or f"A Vatty terminou com código {codigo}.")
+    if not pasta:
+        raise RuntimeError("A Vatty terminou sem dizer onde guardou o resultado.")
+    return pasta

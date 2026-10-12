@@ -659,6 +659,9 @@ def main(argv=None) -> int:
         return _main_ata(argv[1:])
     if argv and argv[0] == "perfil":
         return _main_perfil(argv[1:])
+    if argv and argv[0] == "ui":
+        from .ui import app
+        return app.main(argv[1:])
     if argv and argv[0] == "corrigir":
         return _main_corrigir(argv[1:])
     if argv and argv[0] == "legenda":
