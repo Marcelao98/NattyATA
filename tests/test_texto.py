@@ -44,6 +44,15 @@ class TestParagrafos(unittest.TestCase):
         self.assertEqual(formatar([]), "")
 
 
+class TestMarcaDuvidoso(unittest.TestCase):
+    def test_marca_so_o_segmento_duvidoso_dentro_do_paragrafo(self):
+        segs = [Segmento(0, 1, "claro"), Segmento(1, 2, "talvez isso", duvidoso="confianca -1.50"), Segmento(2, 3, "fim")]
+        self.assertEqual(juntar_em_paragrafos(segs), ["claro talvez isso [?] fim"])
+
+    def test_sem_duvidoso_o_texto_e_o_de_sempre(self):
+        self.assertEqual(juntar_em_paragrafos([Segmento(0, 1, "oi")]), ["oi"])
+
+
 class TestJuntarComInicio(unittest.TestCase):
     def test_devolve_o_inicio_de_cada_paragrafo(self):
         segs = [Segmento(3.0, 5.0, "Primeira."), Segmento(5.5, 7.0, "Segue."), Segmento(70.0, 72.0, "Depois.")]

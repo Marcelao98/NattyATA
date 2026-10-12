@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass, field
 
 from . import audio as _audio
-from . import repeticao
+from . import duvidoso, repeticao
 
 # "large-v3-turbo": multilíngue, qualidade perto do large-v3, mais rápido até
 # que o medium. O "small" errou nomes e palavras soltas num teste real
@@ -45,6 +45,8 @@ class Segmento:
     falante: str | None = None
     # Só com a separação de falantes (--falantes): "Pessoa 1", o nome de um perfil ou "Desconhecido".
     pessoa: str | None = None
+    # Só quando o Whisper não está confiante: o motivo em texto curto (ver duvidoso.py).
+    duvidoso: str | None = None
 
 
 @dataclass
@@ -139,7 +141,8 @@ def _converter(brutos, deslocamento: float = 0.0) -> list:
     segmentos = []
     for s in brutos:
         inicio, fim = limites_pelas_palavras(s)
-        segmentos.append(Segmento(inicio=inicio + deslocamento, fim=fim + deslocamento, texto=s.text.strip()))
+        segmentos.append(Segmento(inicio=inicio + deslocamento, fim=fim + deslocamento, texto=s.text.strip(),
+                                 duvidoso=duvidoso.do_segmento_bruto(s)))
     return segmentos
 
 
@@ -227,7 +230,7 @@ def transcrever(
     segmentos = []
     for s in brutos:  # gerador: a transcrição acontece aqui, segmento a segmento
         inicio, fim = limites_pelas_palavras(s)
-        segmentos.append(Segmento(inicio=inicio, fim=fim, texto=s.text.strip()))
+        segmentos.append(Segmento(inicio=inicio, fim=fim, texto=s.text.strip(), duvidoso=duvidoso.do_segmento_bruto(s)))
         if progresso:
             progresso(min(fim, duracao), duracao)
 

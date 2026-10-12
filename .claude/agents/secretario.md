@@ -109,3 +109,5 @@ para outras pessoas e precisa ser neutra e fiel.
 Depois de escrever o arquivo, devolva só: o caminho, quantos itens há em cada
 seção e as dúvidas mais importantes em uma linha cada. O documento fica na
 pasta, não na conversa.
+
+**Marca `[?]`:** no `transcricao.txt`, ` [?]` depois de um trecho quer dizer que o Whisper não confiou nele (o motivo está no campo `duvidoso` do `transcricao.json`; o cabeçalho traz `trechos_duvidosos`). Trate como incerto: não tire conclusão só dele e liste os relevantes em "Dúvidas da transcrição". Não copie o `[?]` para o texto que você escreve.

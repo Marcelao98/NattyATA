@@ -32,6 +32,24 @@ def transcrever(duble, duracao=10.0, **kwargs):
     )
 
 
+class TestDuvidosoNoMotor(unittest.TestCase):
+    def test_segmento_de_baixa_confianca_sai_marcado(self):
+        class Duble(ModeloDuble):
+            def transcribe(self, audio, **opcoes):
+                brutos = [SimpleNamespace(start=0.0, end=2.0, text="bom", words=None,
+                                          avg_logprob=-0.2, no_speech_prob=0.0, compression_ratio=1.2),
+                          SimpleNamespace(start=2.0, end=4.0, text="ruim", words=None,
+                                          avg_logprob=-1.8, no_speech_prob=0.0, compression_ratio=1.2)]
+                return iter(brutos), SimpleNamespace(language="pt")
+        resultado = transcrever(Duble())
+        self.assertIsNone(resultado.segmentos[0].duvidoso)
+        self.assertIn("confianca", resultado.segmentos[1].duvidoso)
+
+    def test_segmento_sem_os_numeros_continua_sem_marca(self):
+        resultado = transcrever(ModeloDuble(segmentos=[(0.0, 1.0, "oi")]))
+        self.assertIsNone(resultado.segmentos[0].duvidoso)
+
+
 class TestParametros(unittest.TestCase):
     def test_padroes_provados_na_sessao_real(self):
         duble = ModeloDuble()

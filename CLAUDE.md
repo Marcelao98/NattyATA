@@ -54,6 +54,7 @@ duas metades compartilham:
 | `falantes.json` | Falantes | só com `--falantes`: `modo` (`agrupar`/`perfis`), `modelo_voz`, `pessoas` (`pessoa`, `fala_s`, `perfil`) e `turnos` (`inicio`, `fim`, `pessoa`). Os segmentos do `transcricao.json` ganham `pessoa` (`Pessoa N`, nome de perfil ou `Desconhecido`); no `transcricao.txt` a pessoa aparece no lugar de `Outros:`. Em gravação só o som do PC é separado |
 | `visual.json` | Visual | só com `--visual`: slides da tela (`eventos`: `tipo`, `inicio`, `fim`, `texto` por OCR, `confianca`, `frame`); o cabeçalho traz `ruido_removido` (linhas que se repetiam em muitos slides, como a barra do navegador) e `slides_sem_texto_descartados` |
 | (cabeçalho do `transcricao.json`) | Glossário | `glossario`: `{errado: vezes}`, só se o glossário corrigiu algo |
+| (cabeçalho e segmentos) | Duvidoso | `trechos_duvidosos` no cabeçalho e `duvidoso` (motivo) no segmento, só se o Whisper não confiou; o `transcricao.txt` marca o trecho com `[?]` |
 | `legenda.srt`, `legenda.vtt` | Legenda (código) | `vatty legenda <pasta>`: os segmentos do `transcricao.json` em blocos de até 2 linhas de 42 caracteres |
 | `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
