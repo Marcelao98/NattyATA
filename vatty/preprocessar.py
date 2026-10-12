@@ -5,9 +5,11 @@ celular com a voz baixa).
 
 Cadeia (no ffmpeg, na decodificação; o áudio continua indo ao Whisper como array):
 
-    aformat (mono, 16 kHz) -> highpass -> arnndn (rede neural) -> speechnorm
+    aformat (mono, 16 kHz) -> highpass -> speechnorm -> arnndn (rede neural)
 
-A ordem importa: o ruído sai ANTES de subir o volume, senão o chiado sobe junto.
+O arnndn fica por último: no ffmpeg 9.0.2, qualquer filtro depois dele (speechnorm, dynaudnorm)
+às vezes trava ou dá segfault (medido com áudio real, 2026-10-12). O chiado que o speechnorm sobe
+junto com a fala sai no arnndn logo em seguida.
 
 Antes de aplicar, `analisar` mede o áudio (nível da fala, piso de ruído, ronco,
 estouro) e `preparar` mostra os números e pergunta. Todos os limites abaixo são
@@ -160,7 +162,8 @@ def cadeia_filtros(arquivo_modelo: str | None) -> str:
     ruido = f"arnndn=m={arquivo_modelo}" if arquivo_modelo else "afftdn"
     grave = f"highpass=f={CORTE_GRAVE_HZ}"
     # dois estágios em série: 24 dB/oitava. Um só (12 dB/oit) deixava ronco forte passar (medido em sinal sintético).
-    return ",".join([FORMATO, grave, grave, ruido, NORMALIZACAO])
+    # o filtro de ruído por último: ver o cabeçalho (arnndn seguido de outro filtro trava o ffmpeg).
+    return ",".join([FORMATO, grave, grave, NORMALIZACAO, ruido])
 
 
 # --- Modelo de ruído ---------------------------------------------------------

@@ -156,9 +156,14 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 - `perfis.py`: perfis de voz de quem consentiu (só o vetor, nunca o áudio; criar sem consentimento é
   recusado; `apagar`). Fora do repositório (`~/.vatty/perfis`).
 - `preprocessar.py`: etapa opcional antes do Whisper (`--preprocessar`). Mede o áudio (nível, SNR,
-  ronco, estouro), pergunta se recomendado e aplica `highpass` x2 → `arnndn` → `speechnorm` na
+  ronco, estouro), pergunta se recomendado e aplica `highpass` x2 → `speechnorm` → `arnndn` na
   decodificação. Modelo `.rnnn` baixado para o cache (nunca no repositório); sem ele, `afftdn`.
-  Registra `preprocessamento` no cabeçalho do `transcricao.json`.
+  Registra `preprocessamento` no cabeçalho do `transcricao.json`. O `arnndn` fica por último:
+  no ffmpeg 9.0.2, filtro depois dele trava ou dá segfault. **Não usar em sussurro nem com
+  música de fundo:** no teste real (12/10/2026, conversa sussurrada com música) o Whisper caiu
+  de ~190 para ~70 palavras com ele, e para 2 palavras somado a VAD tolerante. Sem ele e com o
+  VAD padrão foi o melhor resultado. Ainda falta testar no caso para o qual foi feito (voz baixa
+  de WhatsApp, ronco).
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
 - `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
   esses trechos sem os termos.
