@@ -554,10 +554,11 @@ def _main_ata(argv) -> int:
 
 
 def main(argv=None) -> int:
-    # Título com emoji num terminal cp1252 não pode derrubar o programa.
+    # Título com emoji num terminal cp1252 não pode derrubar o programa. `line_buffering`: com a saída
+    # redirecionada (arquivo, outro programa) o Python guarda o texto num buffer e parece travado.
     for fluxo in (sys.stdout, sys.stderr):
         if hasattr(fluxo, "reconfigure"):
-            fluxo.reconfigure(errors="replace")
+            fluxo.reconfigure(errors="replace", line_buffering=True)
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv and argv[0] == "gravar":
         return _main_gravar(argv[1:])
