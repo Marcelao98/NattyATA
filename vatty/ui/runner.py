@@ -5,6 +5,7 @@ Usar o próprio comando (em vez de chamar as funções) mantém a tela igual ao 
 pessoa vê é o que a CLI imprime, e o painel de terminal só roda comandos `vatty`. Nada de shell livre.
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -29,6 +30,20 @@ ETAPAS = (  # trecho da saída da CLI -> etapa mostrada na tela
     ("Lendo o texto de", "Lendo os slides"),
     ("Baixando o vídeo", "Baixando o vídeo"),
 )
+
+
+def ambiente(base=None) -> dict:
+    """
+    Ambiente dos subprocessos: acha o pacote `vatty` mesmo sem instalação (PYTHONPATH), escreve em UTF-8
+    (no Windows o padrão seria cp1252 e os acentos viravam lixo) e sem buffer (a barra de progresso
+    chega na hora).
+    """
+    env = dict(os.environ if base is None else base)
+    raiz_do_pacote = str(Path(__file__).resolve().parent.parent.parent)
+    env["PYTHONPATH"] = raiz_do_pacote + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUNBUFFERED"] = "1"
+    return env
 
 
 class EntradaInvalida(ValueError):
@@ -94,7 +109,8 @@ def _linhas(fluxo):
 def executar(trabalho, ctx, saida, popen=subprocess.Popen) -> str:
     """Roda a CLI para o trabalho. Devolve a pasta do vídeo. `popen` entra por parâmetro para os testes."""
     argv = montar_argv(trabalho.entrada, trabalho.opcoes, saida)
-    proc = popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    proc = popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                 env=ambiente())
     pasta, ultima_erro = None, ""
     try:
         for linha in _linhas(proc.stdout):

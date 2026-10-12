@@ -1,0 +1,53 @@
+/* Layout da interface. As cores e componentes vêm de tokens.css. */
+.app { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; max-width: 1180px; margin: 0 auto; padding: 24px 16px 96px; }
+.lateral { display: grid; gap: 16px; align-content: start; position: sticky; top: 16px; height: fit-content; }
+.vatty-card { padding: 0 0 16px; overflow: hidden; }
+.vatty-card .arte { width: 100%; display: block; max-height: 380px; object-fit: cover; object-position: top; }
+.vatty-card h1, .vatty-card p { margin-inline: 16px; }
+.vatty-card h1 { font-size: var(--t2); margin-top: 16px; }
+.selo { font-size: var(--t-1); color: var(--papel-2); border-left: 3px solid var(--couro); padding-left: 10px; }
+.painel { padding: 16px; }
+.numeros { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 14px; }
+.numeros div { background: var(--remendo); border-radius: var(--raio-p); padding: 8px; }
+.numeros dt { font-size: var(--t-1); color: var(--papel-2); } .numeros dd { margin: 0; font-size: var(--t2); font-weight: 750; }
+.principal { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.abas { display: flex; gap: 8px; flex-wrap: wrap; }
+.abas button { font: 650 var(--t0)/1 var(--fonte); color: var(--papel-2); background: transparent; border: 2px dashed var(--fio-vazio); border-radius: var(--raio-p); padding: 10px 16px; cursor: pointer; }
+.abas button[aria-selected="true"] { color: var(--papel); border-color: var(--costura); background: var(--bancada); }
+.contador { background: var(--ouvido); color: var(--sobre-ouvido); border-radius: 999px; padding: 1px 8px; font-size: var(--t-1); margin-left: 4px; }
+.aba { display: grid; gap: 16px; } .aba[hidden], [hidden] { display: none !important; }
+#soltar { text-align: center; cursor: pointer; padding: 40px 20px; }
+#soltar.sobre { border-color: var(--ouvido); background: color-mix(in srgb, var(--ouvido) 8%, var(--bancada)); }
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+textarea, input[type=search], input#comando, select { width: 100%; font: inherit; color: var(--papel); background: var(--oficina); border: 2px solid var(--fio-vazio); border-radius: var(--raio-p); padding: 10px 12px; }
+textarea:focus, input:focus, select:focus { border-color: var(--ouvido); outline: none; }
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 12px; }
+.opcoes { margin: 14px 0; } .opcoes summary { cursor: pointer; font-weight: 650; }
+.dica, .vazio { color: var(--papel-2); font-size: var(--t-1); }
+.linha-btn { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.fila { display: grid; gap: 14px; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) 140px 96px auto; gap: 14px; align-items: center; }
+.item .nome { font-weight: 650; overflow-wrap: anywhere; } .item small { display: block; color: var(--papel-2); font-weight: 400; }
+.item .acoes { display: flex; gap: 8px; }
+.btn-mini { font: 600 var(--t-1)/1 var(--fonte); padding: 7px 10px; border-radius: 6px; border: 1px solid var(--fio-vazio); background: var(--remendo); color: var(--papel); cursor: pointer; }
+.btn-mini:hover { border-color: var(--ouvido); }
+#form-busca, #form-comando { display: flex; gap: 8px; margin-bottom: 14px; }
+.biblioteca { display: grid; gap: 10px; }
+.video { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; background: var(--remendo); border-radius: var(--raio-p); padding: 12px 14px; }
+.video b { overflow-wrap: anywhere; } .video small { color: var(--papel-2); display: block; }
+.marca { color: var(--costura); font-weight: 650; }
+.achado { margin-bottom: 10px; } .achado .onde { color: var(--papel-2); font-size: var(--t-1); display: block; margin-bottom: 4px; }
+.leitor-topo { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: start; margin-bottom: 14px; }
+.exportar { display: flex; gap: 8px; flex-wrap: wrap; }
+.exportar a { text-decoration: none; }
+.paragrafos { display: grid; gap: 10px; max-width: 78ch; }
+.para { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.gaveta { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bancada); border-top: 2px dashed var(--costura); z-index: 5; }
+.gaveta-topo { width: 100%; text-align: left; padding: 10px 20px; font: 650 var(--t0)/1 var(--fonte); color: var(--papel); background: transparent; border: 0; cursor: pointer; }
+.gaveta-corpo { padding: 0 16px 16px; max-width: 1180px; margin: 0 auto; }
+.gaveta .terminal { height: 190px; max-height: 190px; margin-bottom: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 860px) { .app { grid-template-columns: 1fr; } .lateral { position: static; } .vatty-card .arte { max-height: 260px; }
+  .item { grid-template-columns: 1fr; } }
+#soltar p { margin-inline: auto; }
+body { padding-bottom: 8px; }

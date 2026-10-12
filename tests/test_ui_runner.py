@@ -55,6 +55,14 @@ class TestMontarArgv(unittest.TestCase):
             runner.montar_argv("/nao/existe.opus", {}, "t")
 
 
+class TestAmbiente(unittest.TestCase):
+    def test_acha_o_pacote_e_forca_utf8_sem_buffer(self):
+        env = runner.ambiente({"PYTHONPATH": "/x"})
+        self.assertTrue((Path(env["PYTHONPATH"].split(":")[0]) / "vatty" / "cli.py").is_file())
+        self.assertTrue(env["PYTHONPATH"].endswith("/x"))
+        self.assertEqual((env["PYTHONIOENCODING"], env["PYTHONUNBUFFERED"]), ("utf-8", "1"))
+
+
 class TestInterpretar(unittest.TestCase):
     def test_percentual_e_etapa(self):
         self.assertEqual(runner.interpretar("  62%  14:20 / 23:10"), (62, "Ouvindo"))
