@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Vatty, a robô ouvinte">
+  <!-- corpo remendado -->
+  <rect x="62" y="122" width="76" height="60" rx="18" fill="#2d2744" stroke="#ffb347" stroke-width="2.5" stroke-dasharray="6 5"/>
+  <rect x="78" y="150" width="44" height="24" rx="5" fill="#3a3358" stroke="#4a4268" stroke-width="2"/>
+  <circle cx="91" cy="162" r="6" fill="#3fd6c3"/><circle cx="109" cy="162" r="6" fill="#3fd6c3"/>
+  <path d="M91 162h18" stroke="#10241f" stroke-width="2"/>
+  <!-- antena -->
+  <path d="M100 42V22" stroke="#b9b0cf" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="100" cy="18" r="6" fill="#ffb347"/>
+  <!-- cabeça -->
+  <rect x="48" y="40" width="104" height="92" rx="30" fill="#3a3358" stroke="#ffb347" stroke-width="2.5" stroke-dasharray="6 5"/>
+  <!-- remendo no canto -->
+  <g transform="rotate(8 134 56)"><rect x="122" y="46" width="22" height="20" rx="3" fill="#ffb347"/>
+  <path d="M126 50l14 12M140 50l-14 12" stroke="#211c33" stroke-width="2" stroke-linecap="round"/></g>
+  <!-- tela do rosto: olhos são ondas de áudio -->
+  <rect x="64" y="64" width="72" height="46" rx="14" fill="#120f1d"/>
+  <g fill="#3fd6c3">
+    <rect x="73" y="80" width="4" height="12" rx="2"/><rect x="80" y="74" width="4" height="24" rx="2"/><rect x="87" y="78" width="4" height="16" rx="2"/>
+    <rect x="109" y="78" width="4" height="16" rx="2"/><rect x="116" y="74" width="4" height="24" rx="2"/><rect x="123" y="80" width="4" height="12" rx="2"/>
+  </g>
+  <path d="M93 102q7 5 14 0" stroke="#ff5c9e" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- fones grandes: o ouvido impecável -->
+  <path d="M46 88C46 36 154 36 154 88" fill="none" stroke="#ff5c9e" stroke-width="9" stroke-linecap="round"/>
+  <rect x="28" y="70" width="24" height="44" rx="11" fill="#ff5c9e"/>
+  <rect x="148" y="70" width="24" height="44" rx="11" fill="#ff5c9e"/>
+  <rect x="34" y="80" width="8" height="24" rx="4" fill="#211c33" opacity=".35"/>
+  <rect x="158" y="80" width="8" height="24" rx="4" fill="#211c33" opacity=".35"/>
+</svg>
