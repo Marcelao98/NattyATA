@@ -203,3 +203,9 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
   (limites -1,0 / 0,6 / 2,4, os padrões do Whisper, **não calibrados** com áudio real). O `motor` grava o
   motivo em `Segmento.duvidoso`; `texto.py` põe ` [?]` depois do trecho. Legenda do YouTube não tem esses
   números, então não marca. Escrivão e Secretário listam esses trechos em "trechos que a transcrição errou".
+- `ui/` (`vatty ui`): `servidor.py` (HTTP local, token, Host, SSE), `fila.py` (fila pura de um worker),
+  `runner.py` (roda `python -m vatty.cli` por subprocesso, só opções conhecidas; UTF-8 e sem buffer),
+  `terminal.py` (só subcomandos `vatty`, caminhos dentro da raiz), `biblioteca.py` (lista, leitor, exportar;
+  nunca sai da raiz), `revisao.py` (corrigir palavra, regra do glossário em `<raiz>/glossario.txt`,
+  `nomes.json`), `prompts.py` ("copiar prompt"), `saude.py` (o que falta instalar), `static/` (tela).
+  A interface não chama LLM: só gera o texto do prompt.

@@ -83,7 +83,7 @@ mídia). Os agentes citam trechos pelo horário (`[12:34]`), que vem do
 `transcricao.json`; num vídeo do YouTube o horário vira link `&t=754s`.
 
 
-Detalhes de legenda-primeiro, visual, módulos e agentes: `docs/arquitetura.md`.
+Detalhes de legenda-primeiro, visual, módulos e agentes: `docs/arquitetura.md`. Interface: `vatty/ui/` e `docs/visual.md`.
 
 ## Princípios
 
@@ -132,6 +132,7 @@ Regra: **testar comportamento, não linhas.** Pouco teste bom vale mais que muit
    **(feito, falta confirmar com vídeo real)** Falta o perfil `corte`.
 7. Separação de falantes (`--falantes`, perfis de voz). **(feito, falta confirmar com voz real)**
 8. Secretário (ata em `.docx`/`.pdf`). **(feito, falta confirmar numa reunião real)**
+9. Interface local `vatty ui` (importar, fila, biblioteca, revisão). **(feita; conferida só na nuvem, falta usar no PC)**
 
 ## Comandos
 
@@ -140,6 +141,7 @@ python -m unittest discover -s tests
 vatty arquivo.opus
 vatty gravar --mic --transcrever
 vatty "url" --visual auto
+vatty ui
 vatty buscar "termo"
 vatty corrigir transcricoes/aula --glossario glossario.txt
 vatty legenda transcricoes/aula --formato srt vtt

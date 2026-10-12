@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vatty"
-version = "0.14.0"
+version = "0.15.0"
 description = "Vatty (Video Audio To Almost Everything): transforma vídeos, áudios e gravações em texto (legenda ou faster-whisper) e deixa agentes do Claude Code fazerem o resto. Filha do ouvido da Natty."
 readme = "README.md"
 license = "MIT"
@@ -31,5 +31,9 @@ vatty = "vatty.cli:main"
 # apelido antigo, para não quebrar o que já estava em uso
 ata = "vatty.cli:main"
 
-[tool.setuptools]
-packages = ["vatty"]
+[tool.setuptools.packages.find]
+include = ["vatty*"]
+
+# A interface (`vatty ui`) leva junto a tela: HTML, CSS, JS e as imagens da Vatty.
+[tool.setuptools.package-data]
+"vatty.ui" = ["static/*"]

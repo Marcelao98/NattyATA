@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.15.0 — 2026-10-12
+
+Interface local (`vatty ui`) e os recursos que a alimentam. Tudo roda no computador de quem usa.
+
+- **`vatty ui`**: servidor em biblioteca padrão (127.0.0.1, token por sessão, checagem de Host), fila de um
+  worker com progresso ao vivo (SSE), importar por arrastar ou colar links em lote, biblioteca com busca,
+  leitor, exportação (`.txt .md .srt .vtt .csv .json`) e um terminal que só roda subcomandos `vatty`.
+- **Revisão**: trechos `[?]` em destaque, corrigir uma palavra (e guardar como regra do glossário),
+  dar nome a cada `Pessoa N` (`nomes.json`, usado também por `vatty ata`) e "copiar prompt" para qualquer IA.
+- `vatty buscar`, `vatty legenda` (.srt/.vtt), `vatty corrigir` e `--glossario`; trechos duvidosos
+  (`[?]`, `trechos_duvidosos`).
+- Padrão visual da Vatty em `vatty/ui/static/` (`docs/visual.md`).
+- **Empacotamento corrigido**: `packages = ["vatty"]` deixava de fora subpacotes e os arquivos da tela;
+  agora `vatty.ui` e `static/*` vão no wheel (verificado montando o pacote).
+- Primeira execução: a tela avisa o que falta (ffmpeg, modelo, yt-dlp) com a ajuda em português.
+- **Não verificado em PC real**: a interface foi conferida com screenshots e testes na nuvem, com um
+  executor de mentira; a transcrição de verdade só roda no seu computador.
+
 ## 0.14.0 — 2026-10-12
 
 TikTok (e outras URLs) direto, sem baixar o vídeo à mão.
