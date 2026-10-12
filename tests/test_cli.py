@@ -761,5 +761,16 @@ class TestPerfilNaCli(unittest.TestCase):
         self.assertIn("não existe", erro)
 
 
+class TestBuscarNaCli(unittest.TestCase):
+    def test_subcomando_buscar_chama_o_modulo(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as raiz:
+            saida = io.StringIO()
+            with redirect_stdout(saida):
+                codigo = cli.main(["buscar", "nada", "--raiz", raiz])
+        self.assertEqual(codigo, 0)
+        self.assertIn("Nada achado", saida.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

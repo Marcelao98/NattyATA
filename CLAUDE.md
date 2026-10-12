@@ -137,5 +137,6 @@ python -m unittest discover -s tests
 vatty arquivo.opus
 vatty gravar --mic --transcrever
 vatty "url" --visual auto
+vatty buscar "termo"
 vatty ata transcricoes/reuniao --nomes "Pessoa 1=Ana" --formato docx pdf
 ```
