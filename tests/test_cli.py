@@ -761,6 +761,38 @@ class TestPerfilNaCli(unittest.TestCase):
         self.assertIn("não existe", erro)
 
 
+class TestGlossarioNaCli(unittest.TestCase):
+    def _pasta(self, d):
+        (Path(d) / "fonte.json").write_text(json.dumps({"tipo": "arquivo"}))
+        (Path(d) / "transcricao.json").write_text(json.dumps({
+            "origem": "whisper", "modelo": "m", "idioma": "pt", "duracao_s": 2, "fonte": "a.opus",
+            "segmentos": [{"inicio": 0, "fim": 1, "texto": "oi natty"}]}))
+        gl = Path(d) / "gl.txt"
+        gl.write_text("natty = Nattie\n")
+        return gl
+
+    def test_corrigir_refaz_json_e_txt_e_e_idempotente(self):
+        with tempfile.TemporaryDirectory() as d:
+            gl = self._pasta(d)
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(["corrigir", d, "--glossario", str(gl)]), 0)
+            dados = json.loads((Path(d) / "transcricao.json").read_text(encoding="utf-8"))
+            self.assertEqual(dados["glossario"], {"natty": 1})
+            self.assertEqual(dados["segmentos"][0]["texto"], "oi Nattie")
+            self.assertIn("oi Nattie", (Path(d) / "transcricao.txt").read_text(encoding="utf-8"))
+            saida = io.StringIO()
+            with redirect_stdout(saida):
+                cli.main(["corrigir", d, "--glossario", str(gl)])
+            self.assertIn("Nada para corrigir", saida.getvalue())
+
+    def test_glossario_inexistente_e_erro(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._pasta(d)
+            with redirect_stderr(io.StringIO()) as erro:
+                self.assertEqual(cli.main(["corrigir", d, "--glossario", str(Path(d) / "nao.txt")]), 1)
+            self.assertIn("Não achei o glossário", erro.getvalue())
+
+
 class TestLegendaNaCli(unittest.TestCase):
     def test_gera_srt_e_erra_sem_transcricao(self):
         with tempfile.TemporaryDirectory() as d:

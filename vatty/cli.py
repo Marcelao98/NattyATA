@@ -7,7 +7,7 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import aula, ata, audio, diarizar, fonte, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, srt, visual, vozes
+from . import aula, ata, audio, diarizar, fonte, glossario, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, srt, visual, vozes
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 PREPROCESSAR_ESCOLHAS = ("perguntar", "sim", "nao")
@@ -40,6 +40,9 @@ def _opcoes_comuns(p) -> None:
     p.add_argument("--termos", type=Path, nargs="+", action="extend", metavar="ARQUIVO",
                    help="um ou mais arquivos .txt com termos, um por linha (viram hotwords do Whisper; o limite de "
                         "~223 tokens vale para a soma). Ex.: --termos termos/tecnologia-ia.txt termos/girias-brasil.txt")
+    p.add_argument("--glossario", type=Path, metavar="ARQUIVO",
+                   help="arquivo com correções 'errado = certo', aplicadas ao texto depois de transcrever "
+                        f"(sem a flag, usa {glossario.arquivo_padrao()} se existir)")
     p.add_argument("--saida", type=Path, default=Path("transcricoes"), help="pasta de saída (padrão: transcricoes/)")
     p.add_argument("--apagar-audio", dest="apagar_audio", action="store_true", default=None,
                    help="gravação: apaga os .wav depois de transcrever, sem perguntar")
@@ -486,7 +489,29 @@ def _fechar_sessao(args) -> None:
         sessao.fechar()
 
 
+def _aplicar_glossario(resultado, arquivo) -> dict:
+    """Corrige o texto do resultado e registra o que foi trocado (nada, se nada casou)."""
+    if arquivo is not None and not Path(arquivo).is_file():
+        raise glossario.GlossarioErro(f"Não achei o glossário {arquivo}.")
+    arquivo = arquivo or glossario.arquivo_padrao()
+    if not Path(arquivo).is_file():
+        return {}  # o glossário padrão é opcional
+    regras = glossario.ler(Path(arquivo).read_text(encoding="utf-8"))
+    resultado.segmentos, feitas = glossario.aplicar(resultado.segmentos, regras)
+    if feitas:
+        acumulado = dict(resultado.glossario or {})  # `vatty corrigir` de novo soma ao que já foi feito
+        for k, v in feitas.items():
+            acumulado[k] = acumulado.get(k, 0) + v
+        resultado.glossario = acumulado
+        print(f"Glossário: {sum(feitas.values())} correção(ões) em {len(feitas)} termo(s).")
+    return feitas
+
+
 def _concluir(args, comeco, visual_pedido, destino, dados_fonte, resultado) -> int:
+    try:
+        _aplicar_glossario(resultado, getattr(args, "glossario", None))
+    except glossario.GlossarioErro as e:
+        print(f"Aviso: {e} O texto sai sem correções.", file=sys.stderr)
     txt = pasta.gravar(destino, dados_fonte, resultado)
     gasto = time.perf_counter() - comeco
     print(f"Pronto em {_relogio(gasto)} (texto de {resultado.origem}, {resultado.duracao_s:.0f}s de áudio): {txt.parent}")
@@ -587,6 +612,25 @@ def _main_ata(argv) -> int:
     return 0
 
 
+def _main_corrigir(argv) -> int:
+    p = argparse.ArgumentParser(prog="vatty corrigir", description="Aplica o glossário numa pasta já transcrita "
+                                "(refaz transcricao.json e transcricao.txt, sem transcrever de novo).")
+    p.add_argument("pasta", type=Path)
+    p.add_argument("--glossario", type=Path, metavar="ARQUIVO")
+    args = p.parse_args(argv)
+    try:
+        dados_fonte, resultado = pasta.carregar(args.pasta)
+        feitas = _aplicar_glossario(resultado, args.glossario)
+    except (FileNotFoundError, glossario.GlossarioErro) as e:
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    if not feitas:
+        print("Nada para corrigir.")
+        return 0
+    pasta.gravar(args.pasta, dados_fonte, resultado)
+    return 0
+
+
 def _main_legenda(argv) -> int:
     p = argparse.ArgumentParser(prog="vatty legenda", description="Gera legenda .srt/.vtt de uma pasta já transcrita.")
     p.add_argument("pasta")
@@ -615,6 +659,8 @@ def main(argv=None) -> int:
         return _main_ata(argv[1:])
     if argv and argv[0] == "perfil":
         return _main_perfil(argv[1:])
+    if argv and argv[0] == "corrigir":
+        return _main_corrigir(argv[1:])
     if argv and argv[0] == "legenda":
         return _main_legenda(argv[1:])
     if argv and argv[0] == "buscar":

@@ -38,6 +38,8 @@ def _transcricao_json(resultado) -> str:
         cabecalho["faixas"] = resultado.faixas
     if getattr(resultado, "preprocessamento", None):  # só se o áudio foi pré-processado
         cabecalho["preprocessamento"] = resultado.preprocessamento
+    if getattr(resultado, "glossario", None):  # só se o glossário corrigiu algo
+        cabecalho["glossario"] = resultado.glossario
     linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
     # `falante` (duas faixas) e `pessoa` (separação de falantes) só aparecem quando existem.
     dados = [{k: v for k, v in asdict(s).items() if k not in ("falante", "pessoa") or v is not None}
@@ -47,6 +49,27 @@ def _transcricao_json(resultado) -> str:
     if segmentos:
         linhas.append(",\n".join(segmentos))
     return "{\n" + "\n".join(linhas) + "\n  ]\n}\n"
+
+
+def carregar(pasta) -> tuple:
+    """
+    Lê de volta `fonte.json` e `transcricao.json`: (fonte, Resultado). Serve para refazer os
+    textos de uma pasta já pronta (ex.: aplicar o glossário) sem transcrever de novo.
+    """
+    from .motor import Resultado, Segmento
+    pasta = Path(pasta)
+    try:
+        fonte = json.loads((pasta / "fonte.json").read_text(encoding="utf-8"))
+        dados = json.loads((pasta / "transcricao.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise FileNotFoundError(f"Pasta do vídeo incompleta ({pasta}): {e}")
+    campos = ("inicio", "fim", "texto", "falante", "pessoa")
+    segmentos = [Segmento(**{k: v for k, v in s.items() if k in campos}) for s in dados["segmentos"]]
+    return fonte, Resultado(
+        fonte=dados.get("fonte", ""), duracao_s=dados.get("duracao_s", 0.0), modelo=dados.get("modelo"),
+        idioma=dados.get("idioma", ""), segmentos=segmentos, origem=dados.get("origem", "whisper"),
+        refeitos=dados.get("trechos_refeitos", []), faixas=dados.get("faixas", []),
+        glossario=dados.get("glossario"), preprocessamento=dados.get("preprocessamento"))
 
 
 def gravar(pasta: Path, fonte: dict, resultado) -> Path:

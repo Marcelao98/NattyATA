@@ -121,6 +121,29 @@ class TestPasta(unittest.TestCase):
             self.assertEqual(dados["segmentos"], [])
 
 
+class TestGlossarioNaPasta(unittest.TestCase):
+    def _gravar(self, **extra):
+        resultado = Resultado(fonte="a.opus", duracao_s=1.0, modelo="m", idioma="pt",
+                              segmentos=[Segmento(0, 1, "oi")], **extra)
+        with tempfile.TemporaryDirectory() as d:
+            pasta.gravar(Path(d), {"tipo": "arquivo"}, resultado)
+            return json.loads((Path(d) / "transcricao.json").read_text(encoding="utf-8"))
+
+    def test_cabecalho_so_tem_glossario_quando_corrigiu(self):
+        self.assertEqual(self._gravar(glossario={"natty": 2})["glossario"], {"natty": 2})
+        self.assertNotIn("glossario", self._gravar())
+
+    def test_carregar_devolve_o_que_foi_gravado(self):
+        resultado = Resultado(fonte="a.opus", duracao_s=1.0, modelo="m", idioma="pt",
+                              segmentos=[Segmento(0, 1, "oi", falante="eu")], glossario={"x": 1})
+        with tempfile.TemporaryDirectory() as d:
+            pasta.gravar(Path(d), {"tipo": "arquivo"}, resultado)
+            fonte, lido = pasta.carregar(d)
+        self.assertEqual(fonte, {"tipo": "arquivo"})
+        self.assertEqual(lido.segmentos, resultado.segmentos)
+        self.assertEqual(lido.glossario, {"x": 1})
+
+
 class TestCabecalhoPreprocessamento(unittest.TestCase):
     def _cabecalho(self, **extra):
         with tempfile.TemporaryDirectory() as tmp:
