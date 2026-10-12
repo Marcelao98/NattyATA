@@ -37,7 +37,8 @@ não leu nada. Se o `corte` for feito, ele precisa do `--psm 11`.
    `eng`), mas o instalador não põe no PATH. Funcionou depois de pôr à mão no terminal.
 
 **A fazer:** fonte aceitar TikTok (uma requisição só, ou baixar o vídeo e ler o áudio dele;
-`tipo` certo); `--preprocessar` pedir a flag sem terminal; perfil `corte` com `--psm 11`.
+`tipo` certo) **[feito na 0.14.0: `fonte.Sessao` lê a página uma vez, `curl-cffi` é dependência, `tipo: "url"` +
+`plataforma`; provado só com extrator falso, falta rodar numa URL de TikTok de verdade]**; `--preprocessar` pedir a flag sem terminal; perfil `corte` com `--psm 11`.
 
 ---
 
