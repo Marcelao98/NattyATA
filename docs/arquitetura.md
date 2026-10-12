@@ -194,3 +194,8 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
   `transcricoes/`, com horário e, no YouTube, link `&t=`. `vatty buscar "termo" [--raiz] [--limite]`.
 - `srt.py`: `transcricao.json` → `legenda.srt`/`legenda.vtt`; quebra segmento longo e divide a duração
   pelo tamanho do texto; `pessoa`/`falante` viram prefixo. `vatty legenda <pasta> --formato srt vtt`.
+- `glossario.py`: correções do usuário (`errado = certo`, uma por linha, `#` comenta) aplicadas ao texto
+  **depois** da transcrição, por palavra inteira e sem diferenciar maiúscula; a regra maior vence. Diferente
+  de `--termos`, que só ajuda o Whisper a ouvir. `--glossario ARQ` (ou `~/.vatty/glossario.txt`, se existir)
+  na transcrição; `vatty corrigir <pasta>` refaz uma pasta pronta (`pasta.carregar`). Registra o que trocou
+  em `glossario` no cabeçalho do `transcricao.json`; `corrigir` repetido soma.

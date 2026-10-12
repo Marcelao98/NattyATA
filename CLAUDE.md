@@ -53,6 +53,7 @@ duas metades compartilham:
 | `transcricao-eu.txt`, `transcricao-outros.txt` | Texto | só em gravação com duas faixas: um canal só, cada parágrafo começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h) |
 | `falantes.json` | Falantes | só com `--falantes`: `modo` (`agrupar`/`perfis`), `modelo_voz`, `pessoas` (`pessoa`, `fala_s`, `perfil`) e `turnos` (`inicio`, `fim`, `pessoa`). Os segmentos do `transcricao.json` ganham `pessoa` (`Pessoa N`, nome de perfil ou `Desconhecido`); no `transcricao.txt` a pessoa aparece no lugar de `Outros:`. Em gravação só o som do PC é separado |
 | `visual.json` | Visual | só com `--visual`: slides da tela (`eventos`: `tipo`, `inicio`, `fim`, `texto` por OCR, `confianca`, `frame`); o cabeçalho traz `ruido_removido` (linhas que se repetiam em muitos slides, como a barra do navegador) e `slides_sem_texto_descartados` |
+| (cabeçalho do `transcricao.json`) | Glossário | `glossario`: `{errado: vezes}`, só se o glossário corrigiu algo |
 | `legenda.srt`, `legenda.vtt` | Legenda (código) | `vatty legenda <pasta>`: os segmentos do `transcricao.json` em blocos de até 2 linhas de 42 caracteres |
 | `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
@@ -139,6 +140,7 @@ vatty arquivo.opus
 vatty gravar --mic --transcrever
 vatty "url" --visual auto
 vatty buscar "termo"
+vatty corrigir transcricoes/aula --glossario glossario.txt
 vatty legenda transcricoes/aula --formato srt vtt
 vatty ata transcricoes/reuniao --nomes "Pessoa 1=Ana" --formato docx pdf
 ```

@@ -59,6 +59,7 @@ class Resultado:
     avisos: list = field(default_factory=list)
     faixas: list = field(default_factory=list)  # só em gravação com duas faixas: ["sistema", "microfone"]
     falantes: dict | None = None  # só com --falantes: turnos e resumo, vira o falantes.json (ver diarizar.py)
+    glossario: dict | None = None  # só se o glossário corrigiu algo: {errado: vezes} (ver glossario.py)
     preprocessamento: dict | None = None  # só se o áudio passou pelo pré-processamento (ver preprocessar.py)
 
 
