@@ -1,0 +1,191 @@
+# Arquitetura detalhada da Vatty
+
+Detalhe por módulo e por agente. O resumo que vale em toda sessão está no `CLAUDE.md`.
+
+### Legenda primeiro, Whisper se o usuário quiser
+
+Para URL de vídeo (YouTube; no TikTok quase nunca há legenda, então vai direto ao Whisper), a primeira coisa é olhar se o vídeo tem legenda no idioma
+pedido (`--lang`). Baixar só a legenda leva segundos; transcrever com Whisper
+leva minutos. Então:
+
+1. **Sem legenda** → baixa o áudio e transcreve com Whisper.
+2. **Com legenda** → baixa só a legenda (sem áudio), preferindo a manual
+   (escrita pelo autor) à automática do YouTube.
+3. **O usuário decide a qualidade.** O terminal mostra o tipo da legenda
+   (manual ou automática), alguns indicadores calculados e 3 trechos de ~30 s
+   (começo, meio e fim), e pergunta: usar a legenda ou transcrever com
+   Whisper. Os indicadores são só dica (ex.: proporção de pontuação e
+   maiúsculas, marcas como `[Música]`); a decisão é sempre do usuário.
+4. Escolheu Whisper → só então baixa o áudio.
+
+A legenda vira os mesmos segmentos `{inicio, fim, texto}` do Motor, então
+`texto.py` e os agentes não sabem nem precisam saber de onde veio. A legenda
+automática do YouTube repete linhas (texto "rolando"); o parser remove as
+repetições.
+
+Flag `--texto perguntar|legenda|whisper` (padrão `perguntar`) para pular a
+pergunta. Sem terminal interativo, `perguntar` não é permitido: a CLI pede a
+flag explícita em vez de escolher sozinha.
+
+### Visual (opcional, depois do texto)
+
+`--visual nenhum|auto|aula` (padrão `nenhum`: nada de vídeo é baixado). O texto
+sai e é gravado **primeiro**; o visual vem depois, então uma falha nele (sem
+Tesseract, erro do ffmpeg) não perde o texto: a CLI avisa e sai com código 1.
+`aula` faz direto; `auto` mostra um palpite (trocas por minuto, palavras por
+tela, formato) e pergunta, como na legenda (Enter aceita o palpite; sem
+terminal, a CLI pede `aula` ou `nenhum`). URL baixa só a imagem, até 720p
+(480p deixa o texto pequeno demais para o OCR), e o vídeo some depois, como o
+áudio; arquivo de vídeo local é usado direto. Os números do perfil (1 s entre
+quadros, 0,5% de tela mudada, 10x10 de bloco, teto de 300 slides, 8 palavras
+no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
+
+### Camada de código (`vatty/`)
+
+- `fonte.py`: URL de vídeo (YouTube, TikTok, o que o `yt-dlp` suportar) → `fonte.json`, legendas
+  disponíveis, download da legenda, do áudio ou da imagem. `Sessao` = uma URL, **uma instância do
+  yt-dlp, uma leitura da página**: os downloads partem do resultado bruto do extrator
+  (`process=False`) e rodam na mesma instância (`process_ie_result`), porque o TikTok recusa a
+  segunda leitura ("Unable to extract universal data for rehydration"). Partir do `info` já
+  processado não serve: ele guarda o formato escolhido na leitura. TikTok também exige o
+  `curl-cffi` (imitar navegador), que é dependência. Arquivo local passa direto.
+- `legenda.py`: legenda (.vtt) → segmentos; escolha manual × automática;
+  amostras e indicadores para o usuário julgar. Lógica pura, sem perguntar
+  nada (quem pergunta é a CLI).
+- `gravacao.py`: grava o som do PC (loopback WASAPI, PyAudioWPatch, só
+  Windows) e o microfone em `.wav` de 16 kHz mono, um por faixa, em
+  `gravacoes/AAAA-MM-DD_HH-MM/`. A linha do tempo vem do relógio, não do dado
+  (o loopback não entrega nada em silêncio): cada passo escreve o que o
+  relógio pede e completa com silêncio. A captura real é a única parte sem
+  teste automático; o resto recebe as entradas por parâmetro. Também junta as
+  duas faixas transcritas num resultado só, com `falante` e a lista `faixas`.
+  Em gravação o motor liga o horário por palavra (`word_timestamps`): o início
+  e o fim do trecho valem da primeira à última palavra.
+- `quadros.py`: vídeo → quadros via ffmpeg: um quadro pequeno em cinza a cada
+  intervalo (em fluxo, nunca vai ao disco) e a extração de um quadro JPG em
+  boa qualidade num horário.
+- `visual.py`: lógica pura do perfil "aula". Acha as trocas de tela comparando
+  cada quadro com o último slide aceito; só aceita a troca depois que a tela
+  estabiliza (espera a animação). Regiões que mexem o tempo todo (câmera do
+  professor, ruído) são ignoradas por uma máscara de movimento por blocos.
+  Junta slides vizinhos com texto quase igual; dá o palpite do perfil. Também
+  limpa o OCR (`limpar_ruido`): linha que aparece em 30% ou mais dos slides com
+  texto (barra do navegador, abas) sai do texto, e slide que fica sem texto é
+  descartado e contado.
+- `ocr.py`: Tesseract chamado pelo terminal (sem pytesseract), com a confiança
+  por palavra. Confere programa e idiomas antes de processar o vídeo.
+- `aula.py`: junta `quadros`, `visual` e `ocr`: `detectar` (uma passada),
+  `palpite` (OCR em até 4 slides) e `montar` (todos os slides → `visual.json`
+  e `frames/`).
+- `audio.py`: arquivo → array float32 mono 16 kHz via ffmpeg (aceita um filtro `-af`).
+- `diarizar.py`: separação de falantes, lógica pura (o modelo de voz entra por parâmetro). Janelas de
+  2 s → vetores → `agrupar` (average linkage, corte por similaridade ou N fixo) ou `reconhecer` (perfis);
+  `montar_turnos`, `atribuir` (o segmento do Whisper vai para quem mais falou nele), `vetor_de_perfil`.
+- `vozes.py`: o modelo de voz de verdade (sherpa-onnx: Silero VAD + CAM++), baixado para o cache; sem
+  teste automático, como a captura de áudio. Extra opcional `[falantes]`.
+- `perfis.py`: perfis de voz de quem consentiu (só o vetor, nunca o áudio; criar sem consentimento é
+  recusado; `apagar`). Fora do repositório (`~/.vatty/perfis`).
+- `preprocessar.py`: etapa opcional antes do Whisper (`--preprocessar`). Mede o áudio (nível, SNR,
+  ronco, estouro), pergunta se recomendado e aplica `highpass` x2 → `speechnorm` → `arnndn` na
+  decodificação. Modelo `.rnnn` baixado para o cache (nunca no repositório); sem ele, `afftdn`.
+  Registra `preprocessamento` no cabeçalho do `transcricao.json`. O `arnndn` fica por último:
+  no ffmpeg 9.0.2, filtro depois dele trava ou dá segfault. **Não usar em sussurro nem com
+  música de fundo:** no teste real (12/10/2026, conversa sussurrada com música) o Whisper caiu
+  de ~190 para ~70 palavras com ele, e para 2 palavras somado a VAD tolerante. Sem ele e com o
+  VAD padrão foi o melhor resultado. Ainda falta testar no caso para o qual foi feito (voz baixa
+  de WhatsApp, ronco).
+- `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
+- `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
+  esses trechos sem os termos.
+- `ata.py`: o `ata-*.md` do Secretário → `.docx` (python-docx) e `.pdf` (reportlab), extra opcional
+  `[ata]`. Lê um subconjunto fixo de Markdown, monta o cabeçalho sem LLM, troca `Pessoa N` por nomes
+  (`--nomes "Pessoa 1=Ana"`) e faz a tabela de tarefas. Quem escreve o conteúdo é o agente; quem
+  formata é o código (é aí que se economizam tokens).
+- `texto.py`: segmentos → parágrafos. Em gravação com duas faixas, um canal
+  por vez (`por_canal`), `formatar_canal` (`[mm:ss]` por parágrafo) e
+  `linha_do_tempo`.
+- `cli.py`: casca fina. `vatty <url-arquivo-ou-pasta-de-gravacao>` produz a pasta
+  do vídeo; `vatty gravar` grava (e com `--transcrever` já transcreve). Depois de
+  transcrever uma gravação, pergunta se apaga os `.wav` (padrão: guardar).
+
+### Camada de agentes (`.claude/agents/`)
+
+Subagentes do Claude Code. Cada um lê a pasta do vídeo e escreve um `.md`
+nela. São chamados conforme a necessidade, nunca em cadeia automática.
+
+**Quem conversa com o usuário é a conversa principal, nunca o subagente.**
+Um subagente roda isolado e só devolve o resultado no fim, então não pode
+parar para perguntar. Por isso a conversa principal:
+
+1. descobre a pasta do vídeo (lista `transcricoes/`; se houver mais de uma
+   candidata, pergunta);
+2. pergunta o que o agente precisa saber, sugerindo opções a partir dos
+   capítulos do `fonte.json` (foco para o Escrivão, nível e tema para o
+   Preceptor) e a **extensão** (`curto`, `medio` ou `completo`; sem resposta,
+   `medio`);
+3. chama o subagente com um briefing completo: pasta, foco ou nível,
+   extensão, arquivo de saída e a data de hoje;
+4. repassa ao usuário o resumo curto que o agente devolveu e o caminho do
+   arquivo. O documento em si fica na pasta, não na conversa.
+
+**Custo (tokens).** Os três agentes rodam no **Sonnet** (`model: sonnet` no
+arquivo de cada um): extrair e reorganizar texto não pede o modelo mais caro. O
+que mais custa é o que eles escrevem, então a **extensão** limita o tamanho
+(`curto`: até 15 pontos; `medio`, o padrão: até 5 por capítulo; `completo`: sem
+limite), e eles escrevem o arquivo numa chamada só. Leem o `transcricao.txt`
+(com `[mm:ss]` por parágrafo, metade dos caracteres do `.json`) e do
+`transcricao.json` só o cabeçalho; para um horário mais exato, usam `Grep`. O
+código também enxuga o `visual.json` (linhas fixas de OCR e slides sem texto
+saem). Tudo isso sem LLM no pacote.
+
+O subagente mantém o contexto isolado: a transcrição de 1 h tem uns 20 mil
+tokens e não deve encher a conversa principal. Até uns 3 h de vídeo a
+transcrição inteira cabe no contexto de um agente; não há divisão em pedaços.
+
+Nome do arquivo de saída: prefixo do agente + slug do foco (minúsculas, sem
+acento, hífens, até ~40 caracteres). Foco "tudo" vira `pontos-chave-geral.md`.
+Pedir de novo com o mesmo foco sobrescreve; foco diferente gera outro arquivo.
+
+- **Escrivão** (`escrivao.md`): registro fiel. Extrai pontos-chave,
+  definições, números, nomes e referências dentro do foco, cada um com o
+  horário (link `&t=` no YouTube), seguindo os capítulos do autor quando há.
+  Não acrescenta conhecimento de fora e não explica: se o vídeo não diz, o
+  Escrivão não diz. Lista os trechos que a transcrição provavelmente errou.
+- **Preceptor** (`preceptor.md`): didática. Pega um conteúdo difícil (ex.: uma aula densa de
+  matemática) e reconstrói em ordem de aprendizado: pré-requisitos, intuição
+  antes da fórmula, exemplos, analogias, exercícios com resposta. Pode usar
+  conhecimento de fora, mas marca o que é acréscimo dele e o que é do vídeo.
+  Se já existir um `pontos-chave-*.md` na pasta, usa como mapa; se não,
+  lê a transcrição direto. Nunca exige que o Escrivão rode antes.
+
+- **Secretário** (`secretario.md`): ata de reunião. Escreve só decisões, tarefas (responsável,
+  prazo), pendências e dúvidas, cada uma com horário, em Markdown de formato fixo e o mais curto
+  possível: título, data, duração, participantes e o arquivo `.docx`/`.pdf` são do código
+  (`vatty ata`). Nunca presume o nome de uma `Pessoa N`; não decide o que a reunião não decidiu.
+  A conversa principal pergunta a extensão e quem é cada `Pessoa N` (mostrando quanto cada uma
+  falou), chama o agente e depois roda `vatty ata <pasta> --nomes ... --formato docx`.
+
+Os papéis são separados de propósito: um é fiel ao vídeo, o outro é
+livre para ensinar. Misturar os dois num agente só faz o resumo inventar e a
+explicação ficar presa ao texto.
+
+**O que está só na tela.** Aulas mostram fórmulas e listas que o professor
+não fala ("isso aqui vezes isso"), e a transcrição perde isso. Com
+`--visual`, o código extrai os slides e lê o texto por OCR (`visual.json`);
+os agentes citam o que o slide mostra, sempre separado do que foi dito, e
+tratam OCR de baixa confiança como duvidoso. **Sem agente novo:** o Escrivão e
+o Preceptor leem o `visual.json` quando existe; sem ele, nada muda. Gráfico
+e imagem não viram texto: continua valendo "estava na tela".
+
+Perfis de visual: `aula` (feito: slides + OCR). Falta o `corte` (vídeo curto,
+com cortes rápidos: poucos quadros para um agente olhar). O palpite do
+`--visual auto` já reconhece esse caso e avisa que ainda não existe.
+
+Agente novo em `.claude/agents/` só aparece depois de reiniciar a sessão do
+Claude Code. Na mesma sessão em que foi criado, chame um agente genérico
+instruído a ler e seguir o arquivo do agente.
+
+Novos agentes entram como novos arquivos em `.claude/agents/` e novos `.md`
+na pasta do vídeo, sem mexer no código (ex.: um que gera flashcards, um que
+compara dois vídeos). Não criar agente novo sem necessidade real.
+
