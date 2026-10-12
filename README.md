@@ -236,6 +236,21 @@ Limites conhecidos: fala sobreposta erra; um trecho do Whisper vai inteiro para 
 modelo de voz foi treinado em chinês e inglês e os limiares foram medidos só em voz sintética em português:
 teste com reunião real e me conte.
 
+### Ata de reunião
+
+Depois de transcrever uma reunião (de preferência com `--falantes`), peça a ata ao **Secretário** na conversa
+do Claude Code ("faz a ata dessa reunião"). Ele escreve só o essencial (decisões, tarefas com responsável e
+prazo, pendências, dúvidas da transcrição) em `ata-<assunto>.md`. Depois o código monta o documento:
+
+```bash
+pip install -e ".[ata]"
+vatty ata transcricoes/reuniao --nomes "Pessoa 1=Ana" "Pessoa 2=Beto" --formato docx pdf
+```
+
+O comando é `vatty ata <pasta>`. Título, data, duração e participantes saem dos arquivos da pasta, sem gastar
+tokens; `--nomes` troca "Pessoa N" pelo nome certo só no documento final. O Secretário nunca presume o nome de
+ninguém. Confira sempre a ata: decisão e tarefa dependem de a transcrição e a separação de falantes estarem certas.
+
 ### Lista de termos (`--termos`)
 
 Ajuda o Whisper com palavras que ele costuma errar: termos em inglês, siglas,

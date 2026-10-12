@@ -7,7 +7,7 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import aula, audio, diarizar, fonte, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, visual, vozes
+from . import aula, ata, audio, diarizar, fonte, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, visual, vozes
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 PREPROCESSAR_ESCOLHAS = ("perguntar", "sim", "nao")
@@ -524,6 +524,35 @@ def _main_perfil(argv, criar_vozes=None, carregar=audio.carregar) -> int:
     return 0
 
 
+# --- Ata de reunião ----------------------------------------------------------
+
+def _argumentos_ata(argv):
+    p = argparse.ArgumentParser(
+        prog="vatty ata",
+        description="Monta o .docx/.pdf da ata que o Secretário escreveu (ata-*.md na pasta do vídeo). "
+                    "Sem custo de tokens: o título, a data, a duração e os participantes vêm dos arquivos da pasta.")
+    p.add_argument("pasta", type=Path, help="pasta do vídeo (transcricoes/<nome>)")
+    p.add_argument("--arquivo", help="qual ata-*.md usar (padrão: a mais recente)")
+    p.add_argument("--formato", nargs="+", choices=tuple(ata.FORMATOS), default=["docx"],
+                   help="docx, pdf ou os dois (padrão: docx)")
+    p.add_argument("--nomes", nargs="+", metavar="'Pessoa 1=Ana'",
+                   help="troca os rótulos 'Pessoa N' pelos nomes (só no documento final)")
+    p.add_argument("--titulo", help="título da ata (padrão: 'Ata: <título da fonte>')")
+    return p.parse_args(argv)
+
+
+def _main_ata(argv) -> int:
+    args = _argumentos_ata(argv)
+    try:
+        arquivos = ata.gerar(args.pasta, args.arquivo, args.formato, ata.ler_nomes(args.nomes), args.titulo)
+    except ata.AtaErro as e:
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    for arquivo in arquivos:
+        print(f"Ata pronta: {arquivo}")
+    return 0
+
+
 def main(argv=None) -> int:
     # Título com emoji num terminal cp1252 não pode derrubar o programa.
     for fluxo in (sys.stdout, sys.stderr):
@@ -532,6 +561,8 @@ def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv and argv[0] == "gravar":
         return _main_gravar(argv[1:])
+    if argv and argv[0] == "ata":
+        return _main_ata(argv[1:])
     if argv and argv[0] == "perfil":
         return _main_perfil(argv[1:])
     return _executar(_argumentos(argv))

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0 — 2026-10-12
+
+Ata de reunião, feita para gastar o mínimo de tokens.
+
+- Agente **Secretário** (`.claude/agents/secretario.md`): escreve só decisões, tarefas, pendências e dúvidas,
+  em Markdown de formato fixo e curto, com horário. Sem título, data nem participantes.
+- `vatty ata <pasta> [--formato docx pdf] [--nomes "Pessoa 1=Ana"]`: o código monta o cabeçalho (data,
+  duração, participantes pela voz), a tabela de tarefas e o `.docx`/`.pdf`, sem LLM.
+- Extra `[ata]` (python-docx, reportlab; só Python, sem Word, LaTeX nem pandoc).
+- Verificado só com uma ata de teste; falta rodar numa reunião real.
+
 ## 0.12.0 — 2026-10-12
 
 Separação de falantes, em dois fluxos.

@@ -54,6 +54,8 @@ duas metades compartilham:
 | `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
 | `didatico-<tema>.md` | Preceptor | um arquivo por pedido |
+| `ata-<assunto>.md` | Secretário | só o conteúdo da ata (seções `## Resumo/Decisões/Tarefas/Pendências/Dúvidas da transcrição`, itens `- ...`; tarefas como `Responsável \| tarefa \| prazo \| [mm:ss]`) |
+| `ata-<assunto>.docx`, `.pdf` | Ata (código) | `vatty ata <pasta>`: cabeçalho (data, duração, participantes) vindo de `fonte.json`/`falantes.json`, mais o `.md` do agente, com `Pessoa N` trocada pelos nomes dados |
 
 `origem` diz de onde veio o texto: `legenda-manual`, `legenda-automatica` ou
 `whisper`. Os agentes leem esse campo para saber o quanto confiar em nomes e
@@ -160,6 +162,10 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
 - `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
   esses trechos sem os termos.
+- `ata.py`: o `ata-*.md` do Secretário → `.docx` (python-docx) e `.pdf` (reportlab), extra opcional
+  `[ata]`. Lê um subconjunto fixo de Markdown, monta o cabeçalho sem LLM, troca `Pessoa N` por nomes
+  (`--nomes "Pessoa 1=Ana"`) e faz a tabela de tarefas. Quem escreve o conteúdo é o agente; quem
+  formata é o código (é aí que se economizam tokens).
 - `texto.py`: segmentos → parágrafos. Em gravação com duas faixas, um canal
   por vez (`por_canal`), `formatar_canal` (`[mm:ss]` por parágrafo) e
   `linha_do_tempo`.
@@ -187,7 +193,7 @@ parar para perguntar. Por isso a conversa principal:
 4. repassa ao usuário o resumo curto que o agente devolveu e o caminho do
    arquivo. O documento em si fica na pasta, não na conversa.
 
-**Custo (tokens).** Os dois agentes rodam no **Sonnet** (`model: sonnet` no
+**Custo (tokens).** Os três agentes rodam no **Sonnet** (`model: sonnet` no
 arquivo de cada um): extrair e reorganizar texto não pede o modelo mais caro. O
 que mais custa é o que eles escrevem, então a **extensão** limita o tamanho
 (`curto`: até 15 pontos; `medio`, o padrão: até 5 por capítulo; `completo`: sem
@@ -217,7 +223,14 @@ Pedir de novo com o mesmo foco sobrescreve; foco diferente gera outro arquivo.
   Se já existir um `pontos-chave-*.md` na pasta, usa como mapa; se não,
   lê a transcrição direto. Nunca exige que o Escrivão rode antes.
 
-Os dois papéis são separados de propósito: um é fiel ao vídeo, o outro é
+- **Secretário** (`secretario.md`): ata de reunião. Escreve só decisões, tarefas (responsável,
+  prazo), pendências e dúvidas, cada uma com horário, em Markdown de formato fixo e o mais curto
+  possível: título, data, duração, participantes e o arquivo `.docx`/`.pdf` são do código
+  (`vatty ata`). Nunca presume o nome de uma `Pessoa N`; não decide o que a reunião não decidiu.
+  A conversa principal pergunta a extensão e quem é cada `Pessoa N` (mostrando quanto cada uma
+  falou), chama o agente e depois roda `vatty ata <pasta> --nomes ... --formato docx`.
+
+Os papéis são separados de propósito: um é fiel ao vídeo, o outro é
 livre para ensinar. Misturar os dois num agente só faz o resumo inventar e a
 explicação ficar presa ao texto.
 
@@ -269,6 +282,8 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
    confirmar a captura num Windows real)**
 6. Visual, perfil `aula`: slides + OCR (Tesseract) → `visual.json`.
    **(feito, falta confirmar com vídeo real)** Falta o perfil `corte`.
+7. Separação de falantes (`--falantes`, perfis de voz). **(feito, falta confirmar com voz real)**
+8. Secretário (ata em `.docx`/`.pdf`). **(feito, falta confirmar numa reunião real)**
 
 ## Comandos
 
@@ -277,4 +292,5 @@ python -m unittest discover -s tests
 vatty arquivo.opus
 vatty gravar --mic --transcrever
 vatty "url" --visual auto
+vatty ata transcricoes/reuniao --nomes "Pessoa 1=Ana" --formato docx pdf
 ```
