@@ -28,7 +28,10 @@ Regras que não mudam (o Marcelo definiu):
 5. Commit com a mensagem no padrão do projeto e `git push` neste branch.
 6. Marcar o item `[x]` no BACKLOG e registrar no LOG (o que fez, testes, o que
    não foi verificado, fonte).
-7. Agendar a próxima iteração.
+7. Atualizar `evolucao/RELATORIO.md` (resumo para quem acorda: o que existe,
+   como usar, o que não foi verificado) e mandar ao Marcelo **uma mensagem curta**
+   com `SendUserMessage`: o que saiu, número de testes, link do PR.
+8. Agendar a próxima iteração.
 
 ## Quando parar sozinha
 
