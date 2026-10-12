@@ -189,3 +189,6 @@ Novos agentes entram como novos arquivos em `.claude/agents/` e novos `.md`
 na pasta do vídeo, sem mexer no código (ex.: um que gera flashcards, um que
 compara dois vídeos). Não criar agente novo sem necessidade real.
 
+
+- `buscar.py`: acha um termo (sem acento nem maiúscula) no `transcricao.txt` de todas as pastas de
+  `transcricoes/`, com horário e, no YouTube, link `&t=`. `vatty buscar "termo" [--raiz] [--limite]`.
