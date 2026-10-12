@@ -49,6 +49,7 @@ duas metades compartilham:
 | `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma; em gravação com duas faixas, também `faixas`) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
 | `transcricao.txt` | Texto | parágrafos separados por linha em branco, cada um começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h): é o que os agentes leem. Em gravação, `Eu:` / `Outros:` depois do horário; com duas faixas é a **linha do tempo** dos dois |
 | `transcricao-eu.txt`, `transcricao-outros.txt` | Texto | só em gravação com duas faixas: um canal só, cada parágrafo começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h) |
+| `falantes.json` | Falantes | só com `--falantes`: `modo` (`agrupar`/`perfis`), `modelo_voz`, `pessoas` (`pessoa`, `fala_s`, `perfil`) e `turnos` (`inicio`, `fim`, `pessoa`). Os segmentos do `transcricao.json` ganham `pessoa` (`Pessoa N`, nome de perfil ou `Desconhecido`); no `transcricao.txt` a pessoa aparece no lugar de `Outros:`. Em gravação só o som do PC é separado |
 | `visual.json` | Visual | só com `--visual`: slides da tela (`eventos`: `tipo`, `inicio`, `fim`, `texto` por OCR, `confianca`, `frame`); o cabeçalho traz `ruido_removido` (linhas que se repetiam em muitos slides, como a barra do navegador) e `slides_sem_texto_descartados` |
 | `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
@@ -145,6 +146,13 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
   `palpite` (OCR em até 4 slides) e `montar` (todos os slides → `visual.json`
   e `frames/`).
 - `audio.py`: arquivo → array float32 mono 16 kHz via ffmpeg (aceita um filtro `-af`).
+- `diarizar.py`: separação de falantes, lógica pura (o modelo de voz entra por parâmetro). Janelas de
+  2 s → vetores → `agrupar` (average linkage, corte por similaridade ou N fixo) ou `reconhecer` (perfis);
+  `montar_turnos`, `atribuir` (o segmento do Whisper vai para quem mais falou nele), `vetor_de_perfil`.
+- `vozes.py`: o modelo de voz de verdade (sherpa-onnx: Silero VAD + CAM++), baixado para o cache; sem
+  teste automático, como a captura de áudio. Extra opcional `[falantes]`.
+- `perfis.py`: perfis de voz de quem consentiu (só o vetor, nunca o áudio; criar sem consentimento é
+  recusado; `apagar`). Fora do repositório (`~/.vatty/perfis`).
 - `preprocessar.py`: etapa opcional antes do Whisper (`--preprocessar`). Mede o áudio (nível, SNR,
   ronco, estouro), pergunta se recomendado e aplica `highpass` x2 → `arnndn` → `speechnorm` na
   decodificação. Modelo `.rnnn` baixado para o cache (nunca no repositório); sem ele, `afftdn`.

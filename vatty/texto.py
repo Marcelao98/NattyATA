@@ -31,7 +31,8 @@ def juntar_com_inicio(
         texto = seg.texto.strip()
         if not texto:
             continue
-        falante = getattr(seg, "falante", None)
+        # `pessoa` (separação de falantes) manda sobre `falante`; sem nenhum dos dois, nada muda.
+        falante = getattr(seg, "pessoa", None) or getattr(seg, "falante", None)
         mesmo_falante = falante == falante_atual
         if paragrafos and mesmo_falante and seg.inicio - ultimo_fim < pausa_max and seg.fim - comeco <= duracao_max:
             paragrafos[-1] = (paragrafos[-1][0], f"{paragrafos[-1][1]} {texto}")
@@ -102,11 +103,20 @@ def paragrafos_com_horario(
     return paragrafos
 
 
-def por_canal(segmentos, **regras) -> dict:
-    """{falante: [(inicio_s, texto)]}, um canal montado sozinho, na ordem em que aparecem."""
+def rotulo_do_segmento(seg) -> str | None:
+    """A pessoa, quando a separação de falantes rodou; senão o `falante` (eu/outros)."""
+    return getattr(seg, "pessoa", None) or seg.falante
+
+
+def por_canal(segmentos, chave=None, **regras) -> dict:
+    """
+    {falante: [(inicio_s, texto)]}, um canal montado sozinho, na ordem em que aparecem.
+    `chave` troca o critério (ex.: `rotulo_do_segmento` para um canal por pessoa).
+    """
+    chave = chave or (lambda s: s.falante)
     canais = {}
     for seg in segmentos:
-        canais.setdefault(seg.falante, []).append(seg)
+        canais.setdefault(chave(seg), []).append(seg)
     return {falante: paragrafos_com_horario(segs, **regras) for falante, segs in canais.items()}
 
 

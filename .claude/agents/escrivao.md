@@ -51,6 +51,13 @@ que você escreve é a parte mais cara. Por isso:
    disse. Numa gravação existem também `transcricao-eu.txt` e
    `transcricao-outros.txt` (um canal só); o `transcricao.txt` é a linha do
    tempo dos dois, com as frases inteiras.
+   Se a pasta tem `falantes.json`, os parágrafos vêm com `Pessoa 1`,
+   `Pessoa 2`... ou o nome de um perfil cadastrado, no lugar de `Outros:`.
+   `Pessoa N` é rótulo automático de voz, não nome de ninguém: não invente o
+   nome; só diga que a pessoa se chama X se o próprio vídeo disser, e marque
+   como suposição. `Desconhecido` é voz que não bateu com nenhum perfil. A
+   separação erra às vezes (fala sobreposta, voz baixa): no `falantes.json`
+   estão os turnos, se precisar conferir.
    `transcricao.json` **não é para ler inteiro** (tem o dobro do tamanho, com
    um segmento por linha). Leia só o cabeçalho (`Read` com `limit` de 12
    linhas): ele diz a `origem` do texto. Se precisar de um horário mais exato

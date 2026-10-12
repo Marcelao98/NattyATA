@@ -198,6 +198,44 @@ O modelo de ruído (~300 KB) baixa uma vez para `~/.cache/vatty/rnnoise` (`VATTY
 pasta) e não fica no repositório. Sem ele, cai num filtro simples (`afftdn`). O que foi aplicado
 fica no `transcricao.json`. Os limiares foram validados só em sinal sintético: compare com e sem.
 
+### Quem falou: `--falantes` e perfis de voz
+
+A Vatty separa as pessoas de um áudio (reunião, ata, conversa). Dois fluxos, que você pode combinar:
+
+```bash
+vatty reuniao.opus --falantes auto       # descobre as pessoas sozinha: Pessoa 1, Pessoa 2...
+vatty reuniao.opus --falantes 5          # você diz quantas são (costuma acertar mais)
+vatty reuniao.opus --falantes perfis     # só reconhece quem tem perfil; o resto é "Desconhecido"
+```
+
+**Sem consentimento (por voz):** a fala é cortada em janelas de 2 s, cada uma vira uma "impressão de
+voz" (vetor de timbre) e as parecidas são agrupadas. Os grupos saem como `Pessoa N`.
+
+**Com consentimento (perfis):** quem concordou grava 20 a 30 s falando sozinho e a Vatty guarda só o
+vetor, nunca o áudio:
+
+```bash
+vatty perfil criar "Ana" ana.opus        # pergunta se a pessoa consentiu (ou use --consentimento)
+vatty perfil listar
+vatty perfil apagar "Ana"
+```
+
+Com `--falantes auto` ou um número, quem tiver perfil recebe o nome no lugar de `Pessoa N`. `--perfis Ana Beto`
+limita a esses perfis; `--perfis nenhum` não usa nenhum. Em gravação a separação roda só no som do PC (o
+microfone já é o "Eu").
+
+Instalação: `pip install -e ".[falantes]"` (sherpa-onnx). Dois modelos pequenos (~29 MB) baixam uma vez para
+`~/.cache/vatty/voz`. Os perfis ficam em `~/.vatty/perfis` (`VATTY_PERFIS` muda), nunca no repositório.
+
+Perfil de voz é dado biométrico, sensível pela LGPD: só crie com o consentimento da pessoa, que pode pedir
+para apagar quando quiser. (Isto não é parecer jurídico.)
+
+O resultado: `falantes.json` na pasta (turnos e resumo) e `pessoa` em cada segmento do `transcricao.json`.
+
+Limites conhecidos: fala sobreposta erra; um trecho do Whisper vai inteiro para quem mais falou nele; o
+modelo de voz foi treinado em chinês e inglês e os limiares foram medidos só em voz sintética em português:
+teste com reunião real e me conte.
+
 ### Lista de termos (`--termos`)
 
 Ajuda o Whisper com palavras que ele costuma errar: termos em inglês, siglas,

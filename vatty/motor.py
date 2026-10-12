@@ -43,6 +43,8 @@ class Segmento:
     texto: str
     # Só em gravação com duas faixas: "eu" (microfone) ou "outros" (som do PC).
     falante: str | None = None
+    # Só com a separação de falantes (--falantes): "Pessoa 1", o nome de um perfil ou "Desconhecido".
+    pessoa: str | None = None
 
 
 @dataclass
@@ -56,6 +58,7 @@ class Resultado:
     refeitos: list = field(default_factory=list)  # trechos refeitos sem os termos (ver repeticao.py)
     avisos: list = field(default_factory=list)
     faixas: list = field(default_factory=list)  # só em gravação com duas faixas: ["sistema", "microfone"]
+    falantes: dict | None = None  # só com --falantes: turnos e resumo, vira o falantes.json (ver diarizar.py)
     preprocessamento: dict | None = None  # só se o áudio passou pelo pré-processamento (ver preprocessar.py)
 
 

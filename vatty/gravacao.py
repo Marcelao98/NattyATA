@@ -220,6 +220,7 @@ def juntar_faixas(resultados: dict):
         avisos=avisos,
         faixas=list(resultados) if len(resultados) >= 2 else [],
         # por faixa: o microfone pode ter sido pré-processado e o som do PC não
+        falantes=next((r.falantes for r in resultados.values() if r.falantes), None),
         preprocessamento={n: r.preprocessamento for n, r in resultados.items() if r.preprocessamento} or None,
     )
 

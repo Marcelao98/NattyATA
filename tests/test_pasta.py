@@ -137,5 +137,54 @@ class TestCabecalhoPreprocessamento(unittest.TestCase):
         self.assertEqual(self._cabecalho(preprocessamento=info)["preprocessamento"], info)
 
 
+class TestPessoasNaPasta(unittest.TestCase):
+    def ler(self, pasta, nome):
+        return (Path(pasta) / nome).read_text(encoding="utf-8")
+
+    def test_uma_faixa_com_pessoas_rotula_o_txt_e_o_json(self):
+        r = Resultado(fonte="x", duracao_s=10.0, modelo="m", idioma="pt",
+                      segmentos=[Segmento(0.0, 2.0, "Bom dia.", pessoa="Ana"), Segmento(5.0, 7.0, "Oi.", pessoa="Pessoa 2")],
+                      falantes={"modo": "agrupar", "pessoas": [], "turnos": [{"inicio": 0.0, "fim": 2.0, "pessoa": "Ana"},
+                                                                             {"inicio": 5.0, "fim": 7.0, "pessoa": "Pessoa 2"}]})
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta.gravar(Path(tmp), {"tipo": "arquivo"}, r)
+            self.assertEqual(self.ler(tmp, "transcricao.txt"), "[00:00] Ana: Bom dia.\n\n[00:05] Pessoa 2: Oi.\n")
+            segs = json.loads(self.ler(tmp, "transcricao.json"))["segmentos"]
+            self.assertEqual(segs[0]["pessoa"], "Ana")
+            falantes = json.loads(self.ler(tmp, "falantes.json"))
+            self.assertEqual(falantes["modo"], "agrupar")
+            self.assertEqual(len(falantes["turnos"]), 2)
+            self.assertEqual(sum('"pessoa"' in l and '"inicio"' in l for l in self.ler(tmp, "falantes.json").splitlines()), 2)
+
+    def test_sem_separacao_nao_aparece_pessoa_nem_falantes_json(self):
+        r = Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt", segmentos=[Segmento(0.0, 1.0, "oi")])
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta.gravar(Path(tmp), {"tipo": "arquivo"}, r)
+            self.assertNotIn("pessoa", self.ler(tmp, "transcricao.json"))
+            self.assertFalse((Path(tmp) / "falantes.json").exists())
+
+    def test_gravacao_com_duas_faixas_e_pessoas_no_som_do_pc(self):
+        segs = [Segmento(0.0, 3.0, "Bom dia a todos.", "outros", "Ana"), Segmento(3.2, 4.0, "Bom dia!", "eu"),
+                Segmento(5.0, 8.0, "Vamos começar.", "outros", "Pessoa 1")]
+        r = Resultado(fonte="g", duracao_s=9.0, modelo="m", idioma="pt", segmentos=segs, faixas=["sistema", "microfone"])
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta.gravar(Path(tmp), {"tipo": "gravacao", "faixas": ["sistema", "microfone"]}, r)
+            self.assertEqual(self.ler(tmp, "transcricao.txt"),
+                             "[00:00] Ana: Bom dia a todos.\n\n[00:03] Eu: Bom dia!\n\n[00:05] Pessoa 1: Vamos começar.\n")
+            self.assertEqual(self.ler(tmp, "transcricao-eu.txt"), "[00:03] Bom dia!\n")
+            self.assertEqual(self.ler(tmp, "transcricao-outros.txt"),
+                             "[00:00] Ana: Bom dia a todos.\n\n[00:05] Pessoa 1: Vamos começar.\n")
+
+    def test_juntar_faixas_leva_o_falantes_do_som_do_pc(self):
+        from vatty import gravacao
+        info = {"modo": "agrupar", "turnos": []}
+        sistema = Resultado(fonte="a", duracao_s=5.0, modelo="m", idioma="pt",
+                            segmentos=[Segmento(0.0, 1.0, "oi", pessoa="Ana")], falantes=info)
+        mic = Resultado(fonte="b", duracao_s=5.0, modelo="m", idioma="pt", segmentos=[Segmento(1.0, 2.0, "ei")])
+        r = gravacao.juntar_faixas({"sistema": sistema, "microfone": mic})
+        self.assertEqual(r.falantes, info)
+        self.assertEqual([(s.falante, s.pessoa) for s in r.segmentos], [("outros", "Ana"), ("eu", None)])
+
+
 if __name__ == "__main__":
     unittest.main()
