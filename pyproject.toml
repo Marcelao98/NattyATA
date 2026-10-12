@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vatty"
-version = "0.11.0"
+version = "0.12.0"
 description = "Vatty (Video Audio To Almost Everything): transforma vídeos, áudios e gravações em texto (legenda ou faster-whisper) e deixa agentes do Claude Code fazerem o resto. Filha do ouvido da Natty."
 readme = "README.md"
 license = "MIT"
@@ -20,6 +20,8 @@ dependencies = [
 [project.optional-dependencies]
 # Gravação do áudio do PC (só Windows): `pip install -e ".[gravacao]"`.
 gravacao = ["pyaudiowpatch; sys_platform == 'win32'"]
+# Separação de falantes (--falantes e vatty perfil): `pip install -e ".[falantes]"`.
+falantes = ["sherpa-onnx"]
 
 [project.scripts]
 vatty = "vatty.cli:main"

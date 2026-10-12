@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.12.0 — 2026-10-12
+
+Separação de falantes, em dois fluxos.
+
+- `--falantes auto|N|perfis|nao` (padrão `nao`): sem consentimento, agrupa as vozes e rotula `Pessoa N`;
+  com perfis cadastrados, reconhece e dá o nome (`Desconhecido` se não bater com ninguém).
+- `vatty perfil criar|listar|apagar`: perfil de voz só com consentimento; guarda o vetor, nunca o áudio.
+- `falantes.json` na pasta do vídeo e `pessoa` nos segmentos. Em gravação, só o som do PC é separado.
+- Extra `[falantes]` (sherpa-onnx); modelos (~29 MB) baixam para o cache, nada entra no repositório.
+- Falha na separação vira aviso: o texto nunca se perde. O Escrivão sabe que `Pessoa N` não é nome.
+- Validado só com voz sintética em português (4 vozes: todas as falas certas, com `auto` e com N fixo).
+  Limiares e modelo (treinado em chinês e inglês) precisam de teste com voz real.
+
 ## 0.11.0 — 2026-10-12
 
 Pré-processamento opcional do áudio antes do Whisper (feito pensando em áudio de WhatsApp).

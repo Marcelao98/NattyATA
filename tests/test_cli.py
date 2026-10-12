@@ -507,5 +507,154 @@ class TestPreprocessarNaCli(unittest.TestCase):
             cli._perguntar_preprocessar(None)
 
 
+class TestSepararFalantesNaCli(unittest.TestCase):
+    """--falantes: opções, avisos em vez de erro, e o que chega ao resultado."""
+
+    def setUp(self):
+        import numpy as np
+        self.np = np
+
+    def args(self, *argv):
+        return cli._argumentos(["entrada.opus", *argv])
+
+    def voz(self):
+        class Voz:
+            nome = "falsa"
+
+            def trechos_de_fala(self, amostras):
+                return [(0.0, 10.0), (12.0, 22.0)]
+
+            def embutir(self, amostras, janelas):
+                base = {0: [1.0, 0.0, 0.0], 1: [0.0, 1.0, 0.0]}
+                return self_np.array([base[0 if (i + f) / 2 < 11 else 1] for i, f in janelas])
+        self_np = self.np
+        return Voz()
+
+    def separar(self, *argv, cadastrados=None):
+        resultado = Resultado(fonte="x", duracao_s=22.0, modelo="m", idioma="pt",
+                              segmentos=[Segmento(0.0, 9.0, "oi"), Segmento(12.0, 21.0, "tchau")])
+        saida = io.StringIO()
+        with redirect_stdout(saida), \
+                mock.patch.object(cli.perfis, "carregar", return_value=(cadastrados or {}, [])):
+            cli._separar_falantes(Path("a.wav"), resultado, self.args(*argv), criar_vozes=self.voz,
+                                  carregar=lambda c: (self.np.zeros(16000 * 22, dtype="float32"), 22.0))
+        return resultado, saida.getvalue()
+
+    def test_opcoes(self):
+        self.assertEqual(self.args().falantes, "nao")
+        self.assertEqual(self.args("--falantes", "5").falantes, "5")
+        self.assertEqual(self.args("--falantes", "AUTO").falantes, "auto")
+        self.assertEqual(self.args("--falantes", "perfis", "--perfis", "Ana", "Beto").perfis, ["Ana", "Beto"])
+        for ruim in ("0", "-2", "muitos", ""):
+            with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+                self.args("--falantes", ruim)
+
+    def test_padrao_nao_mexe_em_nada(self):
+        resultado, saida = self.separar()
+        self.assertIsNone(resultado.falantes)
+        self.assertEqual([s.pessoa for s in resultado.segmentos], [None, None])
+        self.assertEqual(saida, "")
+
+    def test_auto_poe_pessoa_nos_segmentos_e_guarda_os_turnos(self):
+        resultado, saida = self.separar("--falantes", "auto")
+        self.assertEqual([s.pessoa for s in resultado.segmentos], ["Pessoa 1", "Pessoa 2"])
+        self.assertEqual(resultado.falantes["modo"], "agrupar")
+        self.assertEqual({t["pessoa"] for t in resultado.falantes["turnos"]}, {"Pessoa 1", "Pessoa 2"})
+        self.assertIn("Pessoa 1", saida)
+
+    def test_numero_fixo_chega_ao_agrupamento(self):
+        resultado, _ = self.separar("--falantes", "1")
+        self.assertEqual({s.pessoa for s in resultado.segmentos}, {"Pessoa 1"})
+        self.assertEqual(resultado.falantes["falantes_pedidos"], 1)
+
+    def test_perfis_reconhece_e_marca_desconhecido(self):
+        resultado, _ = self.separar("--falantes", "perfis", cadastrados={"Ana": self.np.array([1.0, 0.0, 0.0])})
+        self.assertEqual([s.pessoa for s in resultado.segmentos], ["Ana", "Desconhecido"])
+
+    def test_perfis_sem_nenhum_perfil_avisa_e_segue_sem_separar(self):
+        resultado, saida = self.separar("--falantes", "perfis")
+        self.assertIn("Aviso", saida)
+        self.assertIsNone(resultado.falantes)
+        self.assertEqual([s.pessoa for s in resultado.segmentos], [None, None])
+
+    def test_perfis_nenhum_nao_usa_perfil(self):
+        resultado, _ = self.separar("--falantes", "auto", "--perfis", "nenhum",
+                                    cadastrados={"Ana": self.np.array([1.0, 0.0, 0.0])})
+        self.assertEqual(resultado.falantes["perfis_usados"], [])
+
+    def test_sem_sherpa_vira_aviso_e_o_texto_fica(self):
+        def sem_modelo():
+            raise cli.vozes.VozesIndisponiveis("falta o sherpa-onnx")
+
+        resultado = Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt", segmentos=[Segmento(0.0, 1.0, "oi")])
+        saida = io.StringIO()
+        with redirect_stdout(saida):
+            cli._separar_falantes(Path("a.wav"), resultado, self.args("--falantes", "auto"), criar_vozes=sem_modelo)
+        self.assertIn("sem separação de falantes", saida.getvalue())
+        self.assertEqual(resultado.segmentos[0].texto, "oi")
+        self.assertIsNone(resultado.falantes)
+
+
+class TestPerfilNaCli(unittest.TestCase):
+    def setUp(self):
+        import os
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.pasta = Path(tmp.name) / "perfis"
+        antigo = os.environ.get("VATTY_PERFIS")
+        os.environ["VATTY_PERFIS"] = str(self.pasta)
+        self.addCleanup(lambda: os.environ.__setitem__("VATTY_PERFIS", antigo) if antigo else os.environ.pop("VATTY_PERFIS", None))
+
+    def rodar(self, *argv, voz=None):
+        import numpy as np
+
+        class Voz:
+            nome = "falsa"
+
+            def trechos_de_fala(self, amostras):
+                return [(0.0, 25.0)]
+
+            def embutir(self, amostras, janelas):
+                return np.tile([1.0, 0.0], (len(janelas), 1))
+
+        saida, erro = io.StringIO(), io.StringIO()
+        with redirect_stdout(saida), redirect_stderr(erro):
+            codigo = cli._main_perfil(list(argv), criar_vozes=voz or Voz,
+                                      carregar=lambda c: (np.zeros(16000 * 25, dtype="float32"), 25.0))
+        return codigo, saida.getvalue(), erro.getvalue()
+
+    def test_sem_consentimento_recusa(self):
+        with mock.patch.object(cli, "_confirmar_consentimento", return_value=False):  # a pessoa diz que não
+            codigo, _, erro = self.rodar("criar", "Ana", "a.wav")
+        self.assertEqual(codigo, 1)
+        self.assertIn("consentimento", erro)
+        self.assertFalse(self.pasta.exists())
+
+    def test_criar_listar_e_apagar(self):
+        codigo, saida, _ = self.rodar("criar", "Ana", "a.wav", "--consentimento")
+        self.assertEqual(codigo, 0)
+        self.assertIn("não foi guardado", saida)
+        self.assertIn("Ana", self.rodar("listar")[1])
+        self.assertEqual(self.rodar("apagar", "Ana")[0], 0)
+        self.assertIn("Nenhum perfil", self.rodar("listar")[1])
+
+    def test_amostra_curta_demais_vira_erro_claro(self):
+        class Curta:
+            nome = "falsa"
+
+            def trechos_de_fala(self, amostras):
+                return [(0.0, 3.0)]
+
+        codigo, _, erro = self.rodar("criar", "Ana", "a.wav", "--consentimento", voz=Curta)
+        self.assertEqual(codigo, 1)
+        self.assertIn("pelo menos", erro)
+
+    def test_apagar_o_que_nao_existe(self):
+        codigo, _, erro = self.rodar("apagar", "Zé")
+        self.assertEqual(codigo, 1)
+        self.assertIn("não existe", erro)
+
+
 if __name__ == "__main__":
     unittest.main()

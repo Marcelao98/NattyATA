@@ -7,7 +7,7 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import aula, fonte, gravacao, legenda, motor, ocr, pasta, preprocessar, quadros, visual
+from . import aula, audio, diarizar, fonte, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, visual, vozes
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 PREPROCESSAR_ESCOLHAS = ("perguntar", "sim", "nao")
@@ -55,9 +55,23 @@ def _opcoes_comuns(p) -> None:
                    help="antes do Whisper: corta o ronco grave, tira o ruído e sobe a voz baixa (áudio de WhatsApp, "
                         "celular). 'perguntar' (padrão) mede o áudio e só pergunta se algo estiver ruim; "
                         "'sim' aplica sempre; 'nao' não mede nem mexe")
+    p.add_argument("--falantes", type=_tipo_falantes, default="nao", metavar="nao|auto|N|perfis",
+                   help="separa quem falou (precisa do sherpa-onnx: pip install -e \".[falantes]\"). 'auto' descobre as "
+                        "pessoas sozinha; um número (ex.: 5) fixa quantas são e costuma acertar mais; 'perfis' só "
+                        "reconhece quem tem perfil cadastrado (vatty perfil --help). Em gravação, só o som do PC. "
+                        "Padrão: nao")
+    p.add_argument("--perfis", nargs="+", default=None, metavar="NOME",
+                   help="com --falantes: usa só esses perfis de voz ('nenhum' não usa nenhum). Sem a opção, usa todos")
     p.add_argument("--ruido-modelo", dest="ruido_modelo", default=None, metavar="NOME_OU_ARQUIVO",
                    help=f"modelo de ruído do arnndn: {', '.join(preprocessar.MODELOS_RUIDO)} (padrão: "
                         f"{preprocessar.MODELO_RUIDO_PADRAO}, baixado na primeira vez) ou o caminho de um .rnnn")
+
+
+def _tipo_falantes(valor: str) -> str:
+    valor = valor.strip().lower()
+    if valor in ("nao", "auto", "perfis") or (valor.isdigit() and int(valor) >= 1):
+        return valor
+    raise argparse.ArgumentTypeError("use nao, auto, perfis ou o número de pessoas (ex.: 5)")
 
 
 def _argumentos(argv):
@@ -105,6 +119,41 @@ def _whisper(caminho, args, idioma):
         for r in resultado.refeitos:
             print(f"  [{_relogio(r['inicio'])}-{_relogio(r['fim'])}] {r['motivo']}")
     return resultado
+
+
+def _separar_falantes(caminho, resultado, args, criar_vozes=None, carregar=audio.carregar) -> None:
+    """
+    Roda a separação de falantes sobre o áudio e põe `pessoa` nos segmentos. Qualquer falha vira aviso:
+    o texto já está pronto e não pode se perder por causa disso.
+    """
+    pedido = getattr(args, "falantes", "nao")
+    if pedido == "nao":
+        return
+    modo, n_falantes = ("perfis", None) if pedido == "perfis" else ("agrupar", None if pedido == "auto" else int(pedido))
+    try:
+        voz = (criar_vozes or vozes.Vozes)()
+        escolhidos = getattr(args, "perfis", None)
+        if escolhidos and [e.lower() for e in escolhidos] == ["nenhum"]:
+            cadastrados, avisos = {}, []
+        else:
+            cadastrados, avisos = perfis.carregar(voz.nome, so_nomes=escolhidos)
+        for aviso in avisos:
+            print(f"Aviso: {aviso}")
+        if modo == "perfis" and not cadastrados:
+            raise ValueError("--falantes perfis precisa de pelo menos um perfil (vatty perfil criar --help).")
+        print("Separando os falantes..." if modo == "agrupar" else "Reconhecendo as vozes cadastradas...")
+        amostras, _ = carregar(caminho)
+        separacao = diarizar.separar(amostras, voz, modo, n_falantes=n_falantes, perfis=cadastrados)
+    except (vozes.VozesIndisponiveis, ValueError, FileNotFoundError, FfmpegAusente, ErroDeDecodificacao) as e:
+        print(f"Aviso: sem separação de falantes: {e}")
+        return
+    resultado.segmentos = diarizar.atribuir(resultado.segmentos, separacao.turnos)
+    resultado.falantes = {**separacao.info, "turnos": [
+        {"inicio": round(t.inicio, 2), "fim": round(t.fim, 2), "pessoa": t.pessoa} for t in separacao.turnos]}
+    for p in separacao.info["pessoas"]:
+        print(f"  {p['pessoa']}: {_relogio(p['fala_s'])}{' (perfil)' if p['perfil'] else ''}")
+    if not separacao.turnos:
+        print("Aviso: não achei fala para separar.")
 
 
 def _perguntar_preprocessar(diagnostico) -> bool:
@@ -182,12 +231,15 @@ def _do_youtube(args):
                     _mostrar_legenda(escolha, segmentos, video.duracao_s)
                     decisao = _perguntar()
                 if decisao == "legenda":
+                    if getattr(args, "falantes", "nao") != "nao":
+                        print("Aviso: com a legenda não há áudio baixado; para separar falantes use --texto whisper.")
                     resultado = legenda.para_resultado(segmentos, video.url, video.duracao_s, lang, escolha)
                     return destino, video.para_json(), resultado
             print("Baixando o áudio...")
-            audio = fonte.baixar_audio(video.url, Path(tmp))
+            arquivo_audio = fonte.baixar_audio(video.url, Path(tmp))
             idioma = None if args.lang == "auto" else args.lang
-            resultado = _whisper(audio, args, idioma)
+            resultado = _whisper(arquivo_audio, args, idioma)
+            _separar_falantes(arquivo_audio, resultado, args)
             resultado.fonte = video.url
             # o áudio some junto com a pasta temporária: só o texto fica
             return destino, video.para_json(), resultado
@@ -206,6 +258,10 @@ def _do_gravacao(args, pasta_audio: Path):
     for nome, caminho in faixas.items():
         print(f"Faixa '{nome}'...")
         resultados[nome] = _whisper(caminho, args_faixa, idioma)
+        if nome == "sistema":  # o microfone já é uma pessoa só ("eu")
+            _separar_falantes(caminho, resultados[nome], args)
+    if getattr(args, "falantes", "nao") != "nao" and "sistema" not in faixas:
+        print("Aviso: --falantes só se aplica ao som do PC (sistema.wav); esta gravação não tem essa faixa.")
     resultado = gravacao.juntar_faixas(resultados)
     dados = {"tipo": "gravacao", "titulo": f"Gravação {pasta_audio.name}", "data": pasta_audio.name,
              "duracao_s": resultado.duracao_s, "faixas": list(faixas), "falantes": gravacao.FALANTES}
@@ -244,6 +300,7 @@ def _do_arquivo(args):
         raise Erro(f"arquivo não encontrado: {caminho}")
     print(f"Transcrevendo {caminho.name}...")
     resultado = _whisper(caminho, args, None if args.lang == "auto" else args.lang)
+    _separar_falantes(caminho, resultado, args)
     dados = {"tipo": "arquivo", "caminho": str(caminho.resolve()), "titulo": caminho.stem,
              "duracao_s": resultado.duracao_s}
     return args.saida / pasta.slug(caminho.stem), dados, resultado
@@ -408,6 +465,65 @@ def _executar(args) -> int:
     return 0
 
 
+# --- Perfis de voz -----------------------------------------------------------
+
+def _argumentos_perfil(argv):
+    p = argparse.ArgumentParser(
+        prog="vatty perfil",
+        description="Perfis de voz: a impressão de voz de quem consentiu em ser reconhecido. Guarda só o vetor, "
+                    f"nunca o áudio, em {perfis.pasta_perfis()} (VATTY_PERFIS muda).")
+    sub = p.add_subparsers(dest="comando", required=True)
+    c = sub.add_parser("criar", help="cria o perfil de uma pessoa a partir de um áudio só dela falando (20 a 30 s)")
+    c.add_argument("nome")
+    c.add_argument("amostra", type=Path, help="áudio com SÓ essa pessoa falando, num lugar quieto")
+    c.add_argument("--consentimento", action="store_true",
+                   help="confirma que a pessoa foi avisada e concordou (sem isso, a Vatty pergunta)")
+    c.add_argument("--substituir", action="store_true", help="refaz um perfil que já existe")
+    sub.add_parser("listar", help="mostra os perfis cadastrados")
+    a = sub.add_parser("apagar", help="apaga o perfil de uma pessoa")
+    a.add_argument("nome")
+    return p.parse_args(argv)
+
+
+def _confirmar_consentimento() -> bool:
+    if not sys.stdin.isatty():
+        return False
+    print(perfis.TEXTO_CONSENTIMENTO)
+    try:
+        return input("Confirma? [s/N] ").strip().lower() in ("s", "sim", "y", "yes")
+    except EOFError:
+        return False
+
+
+def _main_perfil(argv, criar_vozes=None, carregar=audio.carregar) -> int:
+    args = _argumentos_perfil(argv)
+    try:
+        if args.comando == "listar":
+            lista = perfis.listar()
+            if not lista:
+                print("Nenhum perfil cadastrado.")
+            for d in lista:
+                print(f"{d['nome']}  (modelo {d['modelo_voz']}, consentimento em {d['consentimento']})")
+        elif args.comando == "apagar":
+            perfis.apagar(args.nome)
+            print(f"Perfil '{args.nome}' apagado.")
+        else:
+            if not (args.consentimento or _confirmar_consentimento()):
+                raise Erro("sem o consentimento da pessoa não se cria perfil de voz "
+                           "(confirme com --consentimento ou respondendo 's' quando eu perguntar).")
+            voz = (criar_vozes or vozes.Vozes)()
+            amostras, _ = carregar(args.amostra)
+            vetor, info = diarizar.vetor_de_perfil(amostras, voz)
+            perfis.criar(args.nome, vetor, voz.nome, consentimento=True, info=info, substituir=args.substituir)
+            print(f"Perfil '{args.nome}' criado ({info['fala_s']:.0f} s de fala, coerência {info['coerencia']}). "
+                  "O áudio da amostra não foi guardado.")
+    except (Erro, perfis.PerfilErro, ValueError, vozes.VozesIndisponiveis, FileNotFoundError, FfmpegAusente,
+            ErroDeDecodificacao) as e:
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main(argv=None) -> int:
     # Título com emoji num terminal cp1252 não pode derrubar o programa.
     for fluxo in (sys.stdout, sys.stderr):
@@ -416,6 +532,8 @@ def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     if argv and argv[0] == "gravar":
         return _main_gravar(argv[1:])
+    if argv and argv[0] == "perfil":
+        return _main_perfil(argv[1:])
     return _executar(_argumentos(argv))
 
 

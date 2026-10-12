@@ -39,8 +39,9 @@ def _transcricao_json(resultado) -> str:
     if getattr(resultado, "preprocessamento", None):  # só se o áudio foi pré-processado
         cabecalho["preprocessamento"] = resultado.preprocessamento
     linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
-    # `falante` só aparece quando existe (gravação com duas faixas).
-    dados = [{k: v for k, v in asdict(s).items() if k != "falante" or v is not None} for s in resultado.segmentos]
+    # `falante` (duas faixas) e `pessoa` (separação de falantes) só aparecem quando existem.
+    dados = [{k: v for k, v in asdict(s).items() if k not in ("falante", "pessoa") or v is not None}
+             for s in resultado.segmentos]
     segmentos = [f"    {json.dumps(d, ensure_ascii=False)}" for d in dados]
     linhas.append('  "segmentos": [')
     if segmentos:
@@ -61,16 +62,34 @@ def gravar(pasta: Path, fonte: dict, resultado) -> Path:
     destino = pasta / "transcricao.txt"
     if _duas_faixas(fonte, resultado.segmentos):
         # Cada canal vira parágrafos sozinho; o .txt principal é a linha do tempo deles.
-        canais = texto.por_canal(resultado.segmentos)
-        destino.write_text(texto.linha_do_tempo(canais), encoding="utf-8")
-        for falante in texto.ROTULOS:
-            (pasta / f"transcricao-{falante}.txt").write_text(
-                texto.formatar_canal(canais.get(falante, [])), encoding="utf-8")
+        if any(getattr(s, "pessoa", None) for s in resultado.segmentos):
+            _escrever_com_pessoas(pasta, resultado.segmentos)
+        else:
+            canais = texto.por_canal(resultado.segmentos)
+            destino.write_text(texto.linha_do_tempo(canais), encoding="utf-8")
+            for falante in texto.ROTULOS:
+                (pasta / f"transcricao-{falante}.txt").write_text(
+                    texto.formatar_canal(canais.get(falante, [])), encoding="utf-8")
     else:
         # `[mm:ss]` em cada parágrafo: os agentes leem só este arquivo (metade do custo do
         # JSON) e ainda citam o horário.
         destino.write_text(texto.formatar_canal(texto.juntar_com_inicio(resultado.segmentos)), encoding="utf-8")
+    if getattr(resultado, "falantes", None):
+        gravar_falantes(pasta, resultado.falantes)
     return destino
+
+
+def _escrever_com_pessoas(pasta: Path, segmentos) -> None:
+    """Duas faixas com a separação de falantes: um canal por pessoa; a pessoa aparece no lugar de 'Outros'."""
+    canais = texto.por_canal(segmentos, chave=texto.rotulo_do_segmento)
+    (pasta / "transcricao.txt").write_text(texto.linha_do_tempo(canais), encoding="utf-8")
+    falante_de = {texto.rotulo_do_segmento(s): s.falante for s in segmentos}
+    for falante in texto.ROTULOS:
+        itens = [(inicio, texto_ if rotulo == falante else f"{rotulo}: {texto_}")
+                 for rotulo, paragrafos in canais.items() if falante_de[rotulo] == falante
+                 for inicio, texto_ in paragrafos]
+        itens.sort(key=lambda i: i[0])
+        (pasta / f"transcricao-{falante}.txt").write_text(texto.formatar_canal(itens), encoding="utf-8")
 
 
 def _duas_faixas(fonte: dict, segmentos) -> bool:
@@ -95,5 +114,23 @@ def gravar_visual(pasta: Path, dados: dict) -> Path:
     if eventos:
         linhas.append(",\n".join(eventos))
     destino = pasta / "visual.json"
+    destino.write_text("{\n" + "\n".join(linhas) + "\n  ]\n}\n", encoding="utf-8")
+    return destino
+
+
+def gravar_falantes(pasta: Path, dados: dict) -> Path:
+    """
+    Escreve falantes.json: o resumo (modo, modelo, pessoas) e depois um turno por linha.
+    `dados["turnos"]` é a lista de {inicio, fim, pessoa}.
+    """
+    pasta = Path(pasta)
+    pasta.mkdir(parents=True, exist_ok=True)
+    cabecalho = {k: v for k, v in dados.items() if k != "turnos"}
+    linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
+    turnos = [f"    {json.dumps(t, ensure_ascii=False)}" for t in dados.get("turnos", [])]
+    linhas.append('  "turnos": [')
+    if turnos:
+        linhas.append(",\n".join(turnos))
+    destino = pasta / "falantes.json"
     destino.write_text("{\n" + "\n".join(linhas) + "\n  ]\n}\n", encoding="utf-8")
     return destino

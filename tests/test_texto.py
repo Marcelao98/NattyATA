@@ -112,5 +112,27 @@ class TestCanaisSeparados(unittest.TestCase):
         self.assertFalse(texto.duas_faixas([Segmento(0.0, 1.0, "oi")]))
 
 
+class TestPessoas(unittest.TestCase):
+    """Separação de falantes: `pessoa` manda sobre `falante` no rótulo e na quebra de parágrafo."""
+
+    def test_troca_de_pessoa_abre_paragrafo_com_o_nome(self):
+        segs = [Segmento(0.0, 2.0, "Bom dia.", pessoa="Ana"), Segmento(2.2, 4.0, "Bom dia!", pessoa="Pessoa 2"),
+                Segmento(4.2, 6.0, "Vamos.", pessoa="Pessoa 2")]
+        self.assertEqual(texto.juntar_com_inicio(segs), [(0.0, "Ana: Bom dia."), (2.2, "Pessoa 2: Bom dia! Vamos.")])
+
+    def test_sem_pessoa_fica_como_antes(self):
+        segs = [Segmento(0.0, 2.0, "oi", "eu"), Segmento(2.1, 3.0, "tudo bem?", "eu")]
+        self.assertEqual(texto.juntar_com_inicio(segs), [(0.0, "Eu: oi tudo bem?")])
+        self.assertEqual(texto.juntar_com_inicio([Segmento(0.0, 1.0, "oi")]), [(0.0, "oi")])
+
+    def test_por_canal_com_chave_por_pessoa(self):
+        segs = [Segmento(0.0, 2.0, "a", "outros", "Pessoa 1"), Segmento(3.0, 4.0, "b", "outros", "Pessoa 2"),
+                Segmento(5.0, 6.0, "c", "eu")]
+        canais = texto.por_canal(segs, chave=texto.rotulo_do_segmento)
+        self.assertEqual(list(canais), ["Pessoa 1", "Pessoa 2", "eu"])
+        self.assertEqual(texto.linha_do_tempo(canais),
+                         "[00:00] Pessoa 1: a\n\n[00:03] Pessoa 2: b\n\n[00:05] Eu: c\n")
+
+
 if __name__ == "__main__":
     unittest.main()
