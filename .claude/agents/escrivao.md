@@ -155,9 +155,11 @@ Um único arquivo, o **arquivo de saída** do briefing, neste formato:
 Regras do formato:
 
 - **Todo ponto tem horário.** Use o `inicio` do segmento onde a ideia
-  começa. Formato `m:ss` (ou `h:mm:ss` acima de 1 h). Num vídeo do YouTube o
-  link é `<url>&t=<segundos inteiros>s` (se a url já tiver `?`, use `&t=`;
-  senão, `?t=`). Para arquivo local, só o horário, sem link.
+  começa. Formato `m:ss` (ou `h:mm:ss` acima de 1 h). Num vídeo do YouTube
+  (`tipo: "youtube"`) o link é `<url>&t=<segundos inteiros>s` (se a url já
+  tiver `?`, use `&t=`; senão, `?t=`). Para arquivo local e para vídeo de
+  outra plataforma (`tipo: "url"`, ex.: TikTok, com o nome em `plataforma`),
+  só o horário, sem link: o `&t=` vale só no YouTube.
 - Seção sem conteúdo é **omitida**, nunca preenchida com "nenhum".
 - Se o foco for amplo ("tudo"), siga os capítulos do autor. Se for
   estreito, inclua só o que serve ao foco, mesmo que fique curto.

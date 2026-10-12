@@ -24,23 +24,56 @@ def _vtt(url, chave, automatica, destino):
     return caminho
 
 
+class SessaoFalsa:
+    """Faz o papel de `fonte.Sessao`: guarda o que foi pedido e escreve arquivos de mentira."""
+
+    criadas = []
+
+    def __init__(self, url, video=VIDEO, baixou=None, erro_ao_ler=None):
+        self.url, self.video, self.baixou, self.erro_ao_ler = url, video, baixou, erro_ao_ler
+        self.leituras = 0
+        self.audios = 0
+        self.fechada = 0
+        SessaoFalsa.criadas.append(self)
+
+    def inspecionar(self):
+        self.leituras += 1
+        if self.erro_ao_ler:
+            raise self.erro_ao_ler
+        return self.video
+
+    def baixar_legenda(self, chave, automatica, destino):
+        return _vtt(self.url, chave, automatica, destino)
+
+    def baixar_audio(self, destino):
+        self.audios += 1
+        return Path(destino) / "audio.webm"
+
+    def baixar_video(self, destino):
+        if self.baixou is not None:
+            self.baixou.append(self.url)
+        caminho = Path(destino) / "video.mp4"
+        caminho.write_bytes(b"v")
+        return caminho
+
+    def fechar(self):
+        self.fechada += 1
+
+
 class TestFluxoYoutube(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.saida = Path(tmp.name)
-        for alvo, valor in (("inspecionar", lambda url: VIDEO), ("baixar_legenda", _vtt)):
-            p = mock.patch.object(fonte, alvo, valor)
-            p.start()
-            self.addCleanup(p.stop)
+        SessaoFalsa.criadas = []
+        p = mock.patch.object(fonte, "Sessao", lambda url: SessaoFalsa(url))
+        p.start()
+        self.addCleanup(p.stop)
         self.whisper = mock.patch.object(cli, "_whisper", return_value=Resultado(
             fonte="x", duracao_s=60.0, modelo="large-v3-turbo", idioma="pt",
             segmentos=[Segmento(0, 1, "do whisper")]))
         self.whisper.start()
         self.addCleanup(self.whisper.stop)
-        p = mock.patch.object(fonte, "baixar_audio", lambda url, destino: Path(destino) / "audio.webm")
-        p.start()
-        self.addCleanup(p.stop)
 
     def rodar(self, *flags, tty=True, respostas=()):
         respostas = iter(respostas)
@@ -78,11 +111,91 @@ class TestFluxoYoutube(unittest.TestCase):
 
     def test_sem_legenda_vai_direto_pro_whisper(self):
         sem = fonte.Video(**{**VIDEO.__dict__, "legendas": {}})
-        with mock.patch.object(fonte, "inspecionar", lambda url: sem):
+        with mock.patch.object(fonte, "Sessao", lambda url: SessaoFalsa(url, sem)):
             codigo, out, _ = self.rodar(tty=False)
         self.assertEqual(codigo, 0)
         self.assertIn("Sem legenda", out)
         self.assertEqual(self.transcricao(), "[00:00] do whisper\n")
+
+
+class TestOutraPlataforma(unittest.TestCase):
+    """TikTok e afins: a página é lida uma vez, e nada diz 'YouTube' à toa."""
+
+    TIKTOK = fonte.Video(
+        id="7", url="https://www.tiktok.com/@ana/video/7", titulo="Meu vídeo #fyp", canal="ana",
+        duracao_s=31.0, data="20261012", idioma=None, plataforma="TikTok",
+    )
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.saida = Path(tmp.name)
+        SessaoFalsa.criadas = []
+        self.baixou = []
+        for objeto, nome, valor in (
+            (fonte, "Sessao", lambda url: SessaoFalsa(url, self.TIKTOK, self.baixou)),
+            (cli, "_whisper", lambda caminho, args, idioma: Resultado(
+                fonte="x", duracao_s=31.0, modelo="m", idioma="pt", segmentos=[Segmento(0, 1, "oi do tiktok")])),
+            (ocr, "verificar", lambda idiomas: "tesseract"),
+        ):
+            p = mock.patch.object(objeto, nome, valor)
+            p.start()
+            self.addCleanup(p.stop)
+
+    def rodar(self, *flags):
+        with mock.patch.object(cli.sys.stdin, "isatty", return_value=False), \
+             redirect_stdout(io.StringIO()) as out, redirect_stderr(io.StringIO()) as err:
+            codigo = cli.main([self.TIKTOK.url, "--saida", str(self.saida), "--preprocessar", "nao", *flags])
+        return codigo, out.getvalue(), err.getvalue()
+
+    def test_fonte_json_diz_a_plataforma_e_a_tela_tambem(self):
+        codigo, out, _ = self.rodar()
+        self.assertEqual(codigo, 0)
+        self.assertNotIn("YouTube", out)
+        self.assertIn("TikTok: Meu vídeo #fyp", out)
+        pasta_video = next(self.saida.iterdir())
+        dados = json.loads((pasta_video / "fonte.json").read_text(encoding="utf-8"))
+        self.assertEqual((dados["tipo"], dados["plataforma"]), ("url", "TikTok"))
+        self.assertEqual(pasta_video.name, "meu-video-fyp-7")
+
+    def test_uma_sessao_so_uma_leitura_e_o_audio_sai_dela(self):
+        self.rodar()
+        (sessao,) = SessaoFalsa.criadas
+        self.assertEqual((sessao.leituras, sessao.audios), (1, 1))
+        self.assertEqual(sessao.fechada, 1)
+
+    def test_o_visual_reaproveita_a_mesma_sessao(self):
+        with mock.patch.object(cli, "_visual", return_value=0) as visual_:
+            self.rodar("--visual", "aula")
+        visual_.assert_called_once()
+        # o download do vídeo da tela vai usar args.sessao: a página não é aberta de novo
+        self.assertEqual(len(SessaoFalsa.criadas), 1)
+
+    def test_visual_baixa_o_video_pela_sessao_da_leitura(self):
+        args = cli._argumentos([self.TIKTOK.url, "--visual", "aula"])
+        sessao = SessaoFalsa(self.TIKTOK.url, self.TIKTOK, self.baixou)
+        args.sessao = sessao
+        with mock.patch.object(fonte, "baixar_video", side_effect=AssertionError("não pode abrir a página de novo")), \
+             mock.patch.object(aula, "detectar", side_effect=cli.Erro("parou depois de baixar")), \
+             redirect_stdout(io.StringIO()):
+            with self.assertRaises(cli.Erro):
+                cli._fazer_visual(args, self.saida, {"url": self.TIKTOK.url})
+        self.assertEqual(self.baixou, [self.TIKTOK.url])
+
+    def test_erro_do_site_vira_mensagem_com_dica(self):
+        from yt_dlp.utils import DownloadError
+        erro = DownloadError("[TikTok] 7: Unexpected response from webpage request")
+        with mock.patch.object(fonte, "Sessao", lambda url: SessaoFalsa(url, self.TIKTOK, erro_ao_ler=erro)):
+            codigo, _, err = self.rodar()
+        self.assertEqual(codigo, 1)
+        self.assertIn("Unexpected response", err)
+        self.assertIn("curl-cffi", err)
+        self.assertNotIn("YouTube", err)
+        self.assertEqual(SessaoFalsa.criadas[-1].fechada, 1)  # fecha mesmo quando dá erro
+
+    def test_outro_erro_nao_ganha_dica(self):
+        self.assertNotIn("curl-cffi", cli._erro_download(RuntimeError("HTTP 404")))
+        self.assertIn("curl-cffi", cli._erro_download(RuntimeError("Impersonate target unavailable")))
 
 
 class _Tom:
@@ -258,20 +371,12 @@ class TestVisualCli(unittest.TestCase):
                          "palavras_por_tela": 25.0}, ("aula", "tela estável com bastante texto"))
         self.slides = [visual.Slide(0, 30, 2), visual.Slide(30, 60, 32)]
 
-        def baixar_video(url, destino):
-            self.baixou.append(url)
-            caminho = Path(destino) / "video.mp4"
-            caminho.write_bytes(b"v")
-            return caminho
-
+        SessaoFalsa.criadas = []
         self.detectar = mock.Mock(side_effect=lambda video, **kw: aula.Deteccao(self.INFO, list(self.slides), False))
         self.montar = mock.Mock(side_effect=lambda video, d, destino, **kw: {
             "perfil": "aula", "eventos": [{"tipo": "slide", "inicio": 0.0, "fim": 30.0, "texto": "Olá", "frame": "frames/0001.jpg"}]})
         for objeto, nome, valor in (
-            (fonte, "inspecionar", lambda url: VIDEO),
-            (fonte, "baixar_legenda", _vtt),
-            (fonte, "baixar_video", baixar_video),
-            (fonte, "baixar_audio", lambda url, destino: Path(destino) / "audio.webm"),
+            (fonte, "Sessao", lambda url: SessaoFalsa(url, baixou=self.baixou)),
             (ocr, "verificar", lambda idiomas: "tesseract"),
             (aula, "detectar", self.detectar),
             (aula, "palpite", lambda *a, **kw: self.palpite),

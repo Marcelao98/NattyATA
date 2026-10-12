@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vatty"
-version = "0.13.0"
+version = "0.14.0"
 description = "Vatty (Video Audio To Almost Everything): transforma vídeos, áudios e gravações em texto (legenda ou faster-whisper) e deixa agentes do Claude Code fazerem o resto. Filha do ouvido da Natty."
 readme = "README.md"
 license = "MIT"
@@ -13,8 +13,9 @@ requires-python = ">=3.14"
 dependencies = [
     "faster-whisper>=1.2.1",
     "numpy",
-    # [default] traz o yt-dlp-ejs, que resolve o desafio JavaScript do YouTube.
-    "yt-dlp[default]",
+    # [default] traz o yt-dlp-ejs, que resolve o desafio JavaScript do YouTube. [curl-cffi] deixa o
+    # yt-dlp imitar um navegador, que o TikTok exige (sem ele: "Unexpected response from webpage request").
+    "yt-dlp[default,curl-cffi]",
 ]
 
 [project.optional-dependencies]

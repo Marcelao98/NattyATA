@@ -45,7 +45,7 @@ duas metades compartilham:
 
 | Arquivo | Quem escreve | Conteúdo |
 |---|---|---|
-| `fonte.json` | Fonte | `tipo` (`youtube`, `arquivo` ou `gravacao`) e, no YouTube: url, título, canal, duração, data, id, capítulos do autor, descrição |
+| `fonte.json` | Fonte | `tipo` (`youtube`, `url`, `arquivo` ou `gravacao`) e, em vídeo de URL: url, título, canal, duração, data, id, capítulos do autor, descrição. `tipo: "url"` é vídeo de outra plataforma (TikTok etc.) e traz `plataforma`; sem capítulos nem legenda, em geral |
 | `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma; em gravação com duas faixas, também `faixas`) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
 | `transcricao.txt` | Texto | parágrafos separados por linha em branco, cada um começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h): é o que os agentes leem. Em gravação, `Eu:` / `Outros:` depois do horário; com duas faixas é a **linha do tempo** dos dois |
 | `transcricao-eu.txt`, `transcricao-outros.txt` | Texto | só em gravação com duas faixas: um canal só, cada parágrafo começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h) |
@@ -79,7 +79,7 @@ mídia). Os agentes citam trechos pelo horário (`[12:34]`), que vem do
 
 ### Legenda primeiro, Whisper se o usuário quiser
 
-Para URL do YouTube, a primeira coisa é olhar se o vídeo tem legenda no idioma
+Para URL de vídeo (YouTube; no TikTok quase nunca há legenda, então vai direto ao Whisper), a primeira coisa é olhar se o vídeo tem legenda no idioma
 pedido (`--lang`). Baixar só a legenda leva segundos; transcrever com Whisper
 leva minutos. Então:
 
@@ -117,8 +117,13 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 
 ### Camada de código (`vatty/`)
 
-- `fonte.py`: URL do YouTube → `fonte.json`, legendas disponíveis, download
-  da legenda ou do áudio via `yt-dlp`. Arquivo local passa direto.
+- `fonte.py`: URL de vídeo (YouTube, TikTok, o que o `yt-dlp` suportar) → `fonte.json`, legendas
+  disponíveis, download da legenda, do áudio ou da imagem. `Sessao` = uma URL, **uma instância do
+  yt-dlp, uma leitura da página**: os downloads partem do resultado bruto do extrator
+  (`process=False`) e rodam na mesma instância (`process_ie_result`), porque o TikTok recusa a
+  segunda leitura ("Unable to extract universal data for rehydration"). Partir do `info` já
+  processado não serve: ele guarda o formato escolhido na leitura. TikTok também exige o
+  `curl-cffi` (imitar navegador), que é dependência. Arquivo local passa direto.
 - `legenda.py`: legenda (.vtt) → segmentos; escolha manual × automática;
   amostras e indicadores para o usuário julgar. Lógica pura, sem perguntar
   nada (quem pergunta é a CLI).

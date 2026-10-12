@@ -159,6 +159,19 @@ mais de tempo, mas evita trechos curtos com horário de silêncio.
 - **Consentimento:** gravar uma conversa sem avisar os outros participantes
   pode ser ilegal onde você mora. A Vatty lembra disso ao começar.
 
+### TikTok e outras plataformas
+
+A URL vai direto, como no YouTube. O TikTok quase nunca tem legenda, então a Vatty baixa o áudio e usa o Whisper:
+
+```bash
+vatty "https://www.tiktok.com/@alguem/video/123" --texto whisper
+```
+
+O TikTok exige que o downloader imite um navegador (`curl-cffi`, já nas dependências: rode `pip install -e .` de novo
+se atualizou). A página do vídeo é lida uma vez só; o TikTok recusava a segunda leitura. Instagram costuma pedir login
+(cookies) e o Kwai não tem suporte no yt-dlp: nesses casos baixe o vídeo e passe o arquivo. Se o site mudar e o
+download quebrar, atualize: `pip install -U "yt-dlp[default,curl-cffi]"`. O `fonte.json` registra `tipo: "url"` e a `plataforma`.
+
 ### YouTube: legenda primeiro
 
 Se o vídeo tem legenda no idioma pedido (a manual do autor antes da

@@ -75,13 +75,13 @@ def _tipo_falantes(valor: str) -> str:
 
 
 def _argumentos(argv):
-    p = argparse.ArgumentParser(prog="vatty", description="Transcreve um vídeo do YouTube, um arquivo de áudio/vídeo "
+    p = argparse.ArgumentParser(prog="vatty", description="Transcreve um vídeo de uma URL (YouTube, TikTok...), um arquivo de áudio/vídeo "
                                 "ou uma gravação. Para gravar o áudio do PC: vatty gravar --help.")
-    p.add_argument("entrada", help="URL do YouTube, arquivo (.opus, .ogg, .mp3, .m4a, .wav, .mp4...) "
+    p.add_argument("entrada", help="URL de vídeo (YouTube, TikTok...), arquivo (.opus, .ogg, .mp3, .m4a, .wav, .mp4...) "
                                    "ou pasta de uma gravação (gravacoes/AAAA-MM-DD_HH-MM)")
     _opcoes_comuns(p)
     p.add_argument("--texto", choices=TEXTO_ESCOLHAS, default="perguntar",
-                   help="YouTube: usar a legenda, o Whisper, ou perguntar depois de mostrar trechos (padrão)")
+                   help="URL com legenda: usar a legenda, o Whisper, ou perguntar depois de mostrar trechos (padrão)")
     p.add_argument("--visual", choices=VISUAL_ESCOLHAS, default="nenhum",
                    help="extrai também o que aparece na tela (slides + OCR com Tesseract). 'aula' faz direto; "
                         "'auto' mostra um palpite e pergunta; 'nenhum' (padrão) só o texto. Precisa de vídeo e do Tesseract")
@@ -171,8 +171,8 @@ def _perguntar_preprocessar(diagnostico) -> bool:
 
 # --- Legenda -----------------------------------------------------------------
 
-def _mostrar_legenda(escolha, segmentos, duracao) -> None:
-    tipo = "automática do YouTube" if escolha.automatica else "manual (escrita pelo autor)"
+def _mostrar_legenda(escolha, segmentos, duracao, plataforma="YouTube") -> None:
+    tipo = f"automática do {plataforma}" if escolha.automatica else "manual (escrita pelo autor)"
     ind = legenda.indicadores(segmentos, duracao)
     print(f"\nLegenda {tipo}, '{escolha.chave}':")
     print(f"  {ind['palavras']} palavras, cobre {ind['cobertura_pct']}% do vídeo")
@@ -200,17 +200,34 @@ def _perguntar() -> str:
 
 # --- Fluxos ------------------------------------------------------------------
 
+DICA_IMITAR_NAVEGADOR = ('Dica: este site exige imitar um navegador. Atualize as dependências: '
+                         'pip install -e . (ou pip install -U "yt-dlp[default,curl-cffi]")')
+
+
+def _erro_download(e) -> str:
+    texto = str(e)
+    if "mpersonat" in texto or "Unexpected response from webpage request" in texto:
+        texto += f"\n{DICA_IMITAR_NAVEGADOR}"
+    return f"não consegui ler/baixar o vídeo: {texto}"
+
+
 def _do_youtube(args):
-    """URL -> (pasta, fonte.json, resultado). Legenda primeiro, Whisper se o usuário quiser."""
+    """
+    URL de vídeo (YouTube, TikTok, o que o yt-dlp suportar) -> (pasta, fonte.json, resultado).
+    Legenda primeiro, Whisper se o usuário quiser. A página é lida UMA vez (`fonte.Sessao`): o TikTok
+    recusa a segunda leitura, então o áudio sai do mesmo `info` e da mesma instância.
+    """
     try:
         from yt_dlp.utils import DownloadError
     except ImportError:  # pragma: no cover
         DownloadError = RuntimeError
 
+    sessao = fonte.Sessao(args.entrada)
+    args.sessao = sessao  # o --visual reaproveita (ver _fazer_visual)
     try:
-        print("Lendo o vídeo no YouTube...")
-        video = fonte.inspecionar(args.entrada)
-        print(f"{video.titulo} ({_relogio(video.duracao_s)})")
+        print("Lendo o vídeo...")
+        video = sessao.inspecionar()
+        print(f"{video.plataforma}: {video.titulo} ({_relogio(video.duracao_s)})")
         lang = video.idioma if args.lang == "auto" else args.lang
         escolha = None
         if lang and args.texto != "whisper":
@@ -224,11 +241,11 @@ def _do_youtube(args):
         destino = args.saida / pasta.slug(video.titulo, video.id)
         with tempfile.TemporaryDirectory(prefix="vatty-") as tmp:
             if escolha:
-                vtt = fonte.baixar_legenda(video.url, escolha.chave, escolha.automatica, Path(tmp))
+                vtt = sessao.baixar_legenda(escolha.chave, escolha.automatica, Path(tmp))
                 segmentos = legenda.ler_vtt(vtt.read_text(encoding="utf-8"))
                 decisao = args.texto
                 if decisao == "perguntar":
-                    _mostrar_legenda(escolha, segmentos, video.duracao_s)
+                    _mostrar_legenda(escolha, segmentos, video.duracao_s, video.plataforma)
                     decisao = _perguntar()
                 if decisao == "legenda":
                     if getattr(args, "falantes", "nao") != "nao":
@@ -236,7 +253,7 @@ def _do_youtube(args):
                     resultado = legenda.para_resultado(segmentos, video.url, video.duracao_s, lang, escolha)
                     return destino, video.para_json(), resultado
             print("Baixando o áudio...")
-            arquivo_audio = fonte.baixar_audio(video.url, Path(tmp))
+            arquivo_audio = sessao.baixar_audio(Path(tmp))
             idioma = None if args.lang == "auto" else args.lang
             resultado = _whisper(arquivo_audio, args, idioma)
             _separar_falantes(arquivo_audio, resultado, args)
@@ -244,7 +261,7 @@ def _do_youtube(args):
             # o áudio some junto com a pasta temporária: só o texto fica
             return destino, video.para_json(), resultado
     except DownloadError as e:
-        raise Erro(f"YouTube: {e}") from e
+        raise Erro(_erro_download(e)) from e
 
 
 def _do_gravacao(args, pasta_audio: Path):
@@ -351,7 +368,9 @@ def _fazer_visual(args, destino: Path, dados_fonte: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="vatty-visual-") as tmp:
         if fonte.eh_url(args.entrada):
             print("\nBaixando o vídeo (só a imagem, até 720p)...")
-            video = fonte.baixar_video(dados_fonte.get("url") or args.entrada, Path(tmp))
+            sessao = getattr(args, "sessao", None)  # a mesma leitura do texto: o TikTok recusa a segunda
+            video = (sessao.baixar_video(Path(tmp)) if sessao
+                     else fonte.baixar_video(dados_fonte.get("url") or args.entrada, Path(tmp)))
         else:
             video = Path(args.entrada)
         print("Procurando as trocas de tela...")
@@ -451,8 +470,22 @@ def _executar(args) -> int:
     try:
         destino, dados_fonte, resultado = (_do_youtube if fonte.eh_url(args.entrada) else _do_arquivo)(args)
     except Erro as e:
+        _fechar_sessao(args)
         print(f"\nErro: {e}", file=sys.stderr)
         return 1
+    try:
+        return _concluir(args, comeco, visual_pedido, destino, dados_fonte, resultado)
+    finally:
+        _fechar_sessao(args)
+
+
+def _fechar_sessao(args) -> None:
+    sessao = getattr(args, "sessao", None)
+    if sessao is not None:
+        sessao.fechar()
+
+
+def _concluir(args, comeco, visual_pedido, destino, dados_fonte, resultado) -> int:
     txt = pasta.gravar(destino, dados_fonte, resultado)
     gasto = time.perf_counter() - comeco
     print(f"Pronto em {_relogio(gasto)} (texto de {resultado.origem}, {resultado.duracao_s:.0f}s de áudio): {txt.parent}")

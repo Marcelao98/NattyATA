@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0 — 2026-10-12
+
+TikTok (e outras URLs) direto, sem baixar o vídeo à mão.
+
+- `fonte.Sessao`: uma URL, uma instância do yt-dlp, **uma leitura da página**. Legenda, áudio e vídeo
+  saem do mesmo resultado do extrator. Antes, a segunda abertura da página falhava no TikTok
+  ("Unable to extract universal data for rehydration").
+- `curl-cffi` virou dependência (`yt-dlp[default,curl-cffi]`): sem ele o TikTok responde
+  "Unexpected response from webpage request". O erro agora traz a dica de atualizar.
+- `fonte.json`: `tipo: "url"` e `plataforma` para o que não é YouTube (YouTube fica como sempre). A CLI
+  deixou de dizer "YouTube" para qualquer URL. O `&t=` dos agentes vale só no YouTube.
+- `tests/manual_ytdlp_real.py` prova a leitura única com o yt-dlp de verdade (sem rede), fora do `unittest`.
+- **Não verificado no TikTok de verdade**: o TikTok está bloqueado no ambiente em que isto foi feito.
+
 ## 0.13.0 — 2026-10-12
 
 Ata de reunião, feita para gastar o mínimo de tokens.

@@ -1,9 +1,10 @@
 """
-De onde vem o conteúdo: URL do YouTube (via yt-dlp) ou arquivo local.
+De onde vem o conteúdo: URL de vídeo (YouTube, TikTok e o que o yt-dlp suportar) ou arquivo local.
 
 `fabrica` é a classe YoutubeDL; os testes trocam por um dublê.
 """
 
+import copy
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,10 +29,11 @@ class Video:
     # agentes a estrutura que o próprio autor definiu.
     capitulos: list = field(default_factory=list)
     descricao: str = ""
+    plataforma: str = "YouTube"   # quem hospeda o vídeo (extrator do yt-dlp): YouTube, TikTok, Instagram...
 
     def para_json(self) -> dict:
-        return {
-            "tipo": "youtube",
+        dados = {
+            "tipo": "youtube" if self.plataforma == "YouTube" else "url",
             "id": self.id,
             "url": self.url,
             "titulo": self.titulo,
@@ -42,6 +44,9 @@ class Video:
             "capitulos": self.capitulos,
             "descricao": self.descricao,
         }
+        if self.plataforma != "YouTube":  # o contrato do YouTube fica como sempre
+            dados["plataforma"] = self.plataforma
+        return dados
 
 
 def _opcoes(**extras) -> dict:
@@ -63,11 +68,14 @@ def _fabrica_padrao():
     return YoutubeDL
 
 
-def inspecionar(url: str, fabrica=None) -> Video:
-    """Lê os metadados e as legendas disponíveis, sem baixar nada."""
-    fabrica = fabrica or _fabrica_padrao()
-    with fabrica(_opcoes(skip_download=True)) as ydl:
-        info = ydl.extract_info(url, download=False)
+def _plataforma(info: dict) -> str:
+    chave = str(info.get("extractor_key") or info.get("extractor") or "")
+    if not chave or chave.lower().startswith("youtube"):
+        return "YouTube"
+    return chave
+
+
+def _video(info: dict, url: str) -> Video:
     return Video(
         id=info["id"],
         url=info.get("webpage_url") or url,
@@ -83,6 +91,7 @@ def inspecionar(url: str, fabrica=None) -> Video:
             for c in info.get("chapters") or []
         ],
         descricao=info.get("description") or "",
+        plataforma=_plataforma(info),
     )
 
 
@@ -93,45 +102,107 @@ def _unico(pasta: Path, padrao: str, o_que: str) -> Path:
     return achados[0]
 
 
+ALTURA_VIDEO_MAX = 720  # texto de slide fica pequeno demais para o OCR em 480p
+
+# Opções que mudam de um download para outro. A mesma instância do YoutubeDL serve a todos, então
+# cada chamada parte deste estado e só depois aplica o que é dela.
+_POR_CHAMADA = {
+    "skip_download": False,
+    "writesubtitles": False,
+    "writeautomaticsub": False,
+    "subtitleslangs": [],
+    "subtitlesformat": "best",
+}
+
+
+class Sessao:
+    """
+    Uma URL, uma instância do yt-dlp. A página do vídeo é lida UMA vez (`inspecionar`) e os downloads
+    reaproveitam esse `info` e os cookies da mesma instância (`process_ie_result`), em vez de abrir
+    a página de novo. O TikTok entrega um desafio na primeira leitura e recusa a segunda
+    ("Unable to extract universal data for rehydration"); com a sessão, a segunda leitura não existe.
+    `fabrica` é a classe YoutubeDL; os testes trocam por um dublê.
+    """
+
+    def __init__(self, url: str, fabrica=None):
+        self.url = url
+        fabrica = fabrica or _fabrica_padrao()
+        self._ydl = fabrica(_opcoes(skip_download=True, outtmpl={"default": "%(id)s.%(ext)s"}))
+        self._bruto = None   # o que o extrator achou, ainda sem escolher formato
+        self._info = None    # o mesmo, já processado (formato escolhido): só para os metadados
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *erro):
+        self.fechar()
+        return False
+
+    def fechar(self) -> None:
+        """Fecha a instância (o yt-dlp salva os cookies, se houver arquivo). Pode chamar mais de uma vez."""
+        ydl, self._ydl = self._ydl, None
+        if ydl is not None and hasattr(ydl, "__exit__"):
+            ydl.__exit__(None, None, None)
+
+    def inspecionar(self) -> Video:
+        """Lê os metadados e as legendas disponíveis, sem baixar nada. Só abre a página na primeira vez."""
+        if self._info is None:
+            # `process=False` devolve o resultado do extrator antes de escolher o formato. Os downloads
+            # partem DELE: o `info` já processado traz o formato escolhido na leitura (`requested_formats`)
+            # e o yt-dlp o reaproveitaria, ignorando o formato pedido (visto no teste com extrator falso).
+            self._bruto = self._ydl.extract_info(self.url, download=False, process=False)
+            self._info = self._ydl.process_ie_result(copy.deepcopy(self._bruto), download=False)
+        return _video(self._info, self.url)
+
+    def _baixar(self, destino: Path, nome: str, formato: str | None = None, **opcoes) -> None:
+        self.inspecionar()
+        params = self._ydl.params
+        params.update(copy.deepcopy(_POR_CHAMADA))
+        params.update(opcoes)
+        params["outtmpl"]["default"] = str(Path(destino) / f"{nome}.%(ext)s")
+        if formato:
+            params["format"] = formato
+            # o seletor é montado na criação da instância; para outro formato, monta-se de novo
+            self._ydl.format_selector = self._ydl.build_format_selector(formato)
+        # copia: o yt-dlp mexe no dicionário, e o próximo download parte do original
+        self._ydl.process_ie_result(copy.deepcopy(self._bruto), download=True)
+
+    def baixar_legenda(self, chave: str, automatica: bool, destino: Path) -> Path:
+        """Baixa só a legenda `chave` em .vtt para a pasta `destino`. Sem áudio."""
+        self._baixar(destino, "legenda", skip_download=True, writesubtitles=not automatica,
+                     writeautomaticsub=automatica, subtitleslangs=[chave], subtitlesformat="vtt")
+        return _unico(Path(destino), "legenda*.vtt", "a legenda")
+
+    def baixar_audio(self, destino: Path) -> Path:
+        """Baixa só a faixa de áudio, no formato que vier (o ffmpeg decodifica)."""
+        self._baixar(destino, "audio", formato="bestaudio/best")
+        return _unico(Path(destino), "audio.*", "o áudio")
+
+    def baixar_video(self, destino: Path) -> Path:
+        """Baixa só a imagem (sem áudio), em até 720p. O vídeo é temporário: quem chama apaga."""
+        h = ALTURA_VIDEO_MAX
+        self._baixar(destino, "video", formato=f"bestvideo[height<={h}]/best[height<={h}]/bestvideo/best")
+        return _unico(Path(destino), "video.*", "o vídeo")
+
+
+# Funções soltas: cada uma abre a própria sessão (e, portanto, lê a página de novo). Servem para
+# quem só precisa de uma coisa; a CLI usa `Sessao` para ler uma vez só.
+
+def inspecionar(url: str, fabrica=None) -> Video:
+    with Sessao(url, fabrica) as sessao:
+        return sessao.inspecionar()
+
+
 def baixar_legenda(url: str, chave: str, automatica: bool, destino: Path, fabrica=None) -> Path:
-    """Baixa só a legenda `chave` em .vtt para a pasta `destino`. Sem áudio."""
-    fabrica = fabrica or _fabrica_padrao()
-    opcoes = _opcoes(
-        skip_download=True,
-        writesubtitles=not automatica,
-        writeautomaticsub=automatica,
-        subtitleslangs=[chave],
-        subtitlesformat="vtt",
-        outtmpl={"default": str(Path(destino) / "legenda.%(ext)s")},
-    )
-    with fabrica(opcoes) as ydl:
-        ydl.download([url])
-    return _unico(Path(destino), "legenda*.vtt", "a legenda")
+    with Sessao(url, fabrica) as sessao:
+        return sessao.baixar_legenda(chave, automatica, destino)
 
 
 def baixar_audio(url: str, destino: Path, fabrica=None) -> Path:
-    """Baixa só a faixa de áudio, no formato que vier (o ffmpeg decodifica)."""
-    fabrica = fabrica or _fabrica_padrao()
-    opcoes = _opcoes(
-        format="bestaudio/best",
-        outtmpl={"default": str(Path(destino) / "audio.%(ext)s")},
-    )
-    with fabrica(opcoes) as ydl:
-        ydl.download([url])
-    return _unico(Path(destino), "audio.*", "o áudio")
-
-
-ALTURA_VIDEO_MAX = 720  # texto de slide fica pequeno demais para o OCR em 480p
+    with Sessao(url, fabrica) as sessao:
+        return sessao.baixar_audio(destino)
 
 
 def baixar_video(url: str, destino: Path, fabrica=None) -> Path:
-    """Baixa só a imagem (sem áudio), em até 720p. O vídeo é temporário: quem chama apaga."""
-    fabrica = fabrica or _fabrica_padrao()
-    h = ALTURA_VIDEO_MAX
-    opcoes = _opcoes(
-        format=f"bestvideo[height<={h}]/best[height<={h}]/bestvideo/best",
-        outtmpl={"default": str(Path(destino) / "video.%(ext)s")},
-    )
-    with fabrica(opcoes) as ydl:
-        ydl.download([url])
-    return _unico(Path(destino), "video.*", "o vídeo")
+    with Sessao(url, fabrica) as sessao:
+        return sessao.baixar_video(destino)
