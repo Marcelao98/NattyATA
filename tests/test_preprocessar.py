@@ -68,17 +68,17 @@ class TestAnalisar(unittest.TestCase):
 
 
 class TestCadeia(unittest.TestCase):
-    def test_ordem_formato_grave_ruido_volume(self):
+    def test_ordem_formato_grave_volume_ruido(self):
         cadeia = preprocessar.cadeia_filtros("sh.rnnn")
         partes = cadeia.split(",")
         self.assertTrue(partes[0].startswith("aformat="))
         self.assertEqual(partes[1], f"highpass=f={preprocessar.CORTE_GRAVE_HZ}")
         self.assertEqual(partes[2], partes[1])  # dois estágios em série
-        self.assertEqual(partes[3], "arnndn=m=sh.rnnn")
-        self.assertTrue(partes[4].startswith("speechnorm="))
+        self.assertTrue(partes[3].startswith("speechnorm="))
+        self.assertEqual(partes[4], "arnndn=m=sh.rnnn")  # por último: filtro depois dele trava o ffmpeg
 
     def test_sem_modelo_cai_no_afftdn(self):
-        self.assertEqual(preprocessar.cadeia_filtros(None).split(",")[3], "afftdn")
+        self.assertEqual(preprocessar.cadeia_filtros(None).split(",")[-1], "afftdn")
 
 
 class TestModelo(unittest.TestCase):

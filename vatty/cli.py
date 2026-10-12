@@ -54,7 +54,8 @@ def _opcoes_comuns(p) -> None:
     p.add_argument("--preprocessar", choices=PREPROCESSAR_ESCOLHAS, default="perguntar",
                    help="antes do Whisper: corta o ronco grave, tira o ruído e sobe a voz baixa (áudio de WhatsApp, "
                         "celular). 'perguntar' (padrão) mede o áudio e só pergunta se algo estiver ruim; "
-                        "'sim' aplica sempre; 'nao' não mede nem mexe")
+                        "'sim' aplica sempre; 'nao' não mede nem mexe. Piora sussurro e áudio com música "
+                        "de fundo: nesses casos, 'nao'")
     p.add_argument("--falantes", type=_tipo_falantes, default="nao", metavar="nao|auto|N|perfis",
                    help="separa quem falou (precisa do sherpa-onnx: pip install -e \".[falantes]\"). 'auto' descobre as "
                         "pessoas sozinha; um número (ex.: 5) fixa quantas são e costuma acertar mais; 'perfis' só "
