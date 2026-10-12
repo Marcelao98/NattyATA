@@ -5,6 +5,7 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
+from unittest import mock
 
 from vatty.ui import fila as f
 from vatty.ui import servidor, terminal
@@ -50,6 +51,12 @@ class TestSeguranca(Base):
 
     def test_host_estranho_e_recusado(self):
         self.assertEqual(self.chamar("/api/estado", host="evil.com")[0], 403)
+
+    def test_saude_lista_as_checagens(self):
+        falso = [{"id": "ffmpeg", "nome": "ffmpeg", "ok": False, "nivel": "essencial", "ajuda": "instale"}]
+        with mock.patch("vatty.ui.saude.checar", return_value=falso):
+            dados = json.loads(self.chamar("/api/saude")[1])
+        self.assertEqual(dados, falso)
 
     def test_pagina_inicial_nao_exige_token(self):
         self.assertEqual(self.chamar("/", token=None)[0], 200)

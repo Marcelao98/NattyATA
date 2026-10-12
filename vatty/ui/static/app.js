@@ -298,5 +298,14 @@ document.addEventListener("mouseup", () => {
 fetch("/api/estado", { headers: { "X-Vatty-Token": TOKEN } }).then((r) => {
   if (r.status === 401) document.body.prepend(el("p", { class: "remendo" }, "Token inválido. Abra o endereço que a Vatty mostrou no terminal."));
 });
+api("saude").then((itens) => {
+  const faltam = itens.filter((i) => !i.ok);
+  const essenciais = faltam.filter((i) => i.nivel === "essencial");
+  if (!essenciais.length) return;
+  $("falta").hidden = false;
+  $("falta").replaceChildren(el("h3", {}, "Falta pouco para a primeira transcrição"),
+    ...essenciais.map((i) => el("p", {}, el("b", {}, i.nome + ": "), i.ajuda)),
+    el("p", { class: "dica" }, "Opções como ler slides ou separar falantes pedem programas extras e avisam quando for a hora."));
+}).catch(() => {});
 carregarBiblioteca();
 ouvirEventos();

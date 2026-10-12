@@ -249,6 +249,18 @@ Limites conhecidos: fala sobreposta erra; um trecho do Whisper vai inteiro para 
 modelo de voz foi treinado em chinês e inglês e os limiares foram medidos só em voz sintética em português:
 teste com reunião real e me conte.
 
+### Interface no navegador: `vatty ui`
+
+```bash
+vatty ui                # abre http://127.0.0.1:8765 (a Vatty mostra o endereço com o token)
+vatty ui --porta 0      # porta livre; --sem-navegador não abre sozinha
+```
+
+Importe arquivos (arrastar), cole links, acompanhe a fila, procure em todas as transcrições, leia com
+horário, corrija palavras, dê nome às pessoas e exporte. A transcrição acontece no seu computador; só o
+texto vai para uma IA, e só se você usar "copiar prompt" ou os agentes. A página só responde neste
+computador e exige o token do endereço. O painel de terminal roda apenas subcomandos `vatty`.
+
 ### Ata de reunião
 
 Depois de transcrever uma reunião (de preferência com `--falantes`), peça a ata ao **Secretário** na conversa

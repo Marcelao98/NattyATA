@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .. import buscar as _buscar
-from . import biblioteca, prompts, revisao, runner, terminal
+from . import biblioteca, prompts, revisao, runner, saude, terminal
 
 ESTATICOS = Path(__file__).parent / "static"
 UPLOAD_MAX = 8 * 1024 ** 3
@@ -141,6 +141,8 @@ class Handler(BaseHTTPRequestHandler):
         s = self.server
         if metodo == "GET" and p == ["estado"]:
             return self._json({"raiz": str(s.raiz), "trabalhos": s.fila.trabalhos()})
+        if metodo == "GET" and p == ["saude"]:
+            return self._json(saude.checar())
         if metodo == "GET" and p == ["biblioteca"]:
             return self._json(biblioteca.listar(s.raiz))
         if metodo == "GET" and p[0] == "video" and len(p) == 2:
