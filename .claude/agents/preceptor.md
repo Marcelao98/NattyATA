@@ -33,7 +33,9 @@ Se faltar a pasta ou o nível, não adivinhe: devolva dizendo o que faltou.
    segmento por linha (`inicio`, `fim` em segundos, `texto`). Se tiver mais
    de 2000 linhas, leia em faixas (`offset`/`limit`) até o fim. Em gravação
    (`tipo: "gravacao"` no `fonte.json`) cada segmento tem `falante`: `eu` ou
-   `outros`; ao ensinar, não troque quem disse o quê.
+   `outros`; ao ensinar, não troque quem disse o quê. Numa gravação existem
+   também `transcricao-eu.txt` e `transcricao-outros.txt` (um canal só, com
+   `[mm:ss]` em cada parágrafo).
 4. `visual.json`, **só se existir** (sem ele, ignore tudo sobre tela). Foi
    gerado pelo código: os slides que apareceram (`eventos`, um por linha, com
    `inicio`, `fim`, `texto` lido por OCR, `confianca` de 0 a 100 e o `frame`).

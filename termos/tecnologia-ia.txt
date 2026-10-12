@@ -1,0 +1,48 @@
+# Termos de tecnologia e IA para o --termos (conversa em português).
+# Só o que o Whisper costuma errar: siglas, nomes de produtos e palavras em
+# inglês. Erros reais vistos numa chamada: "IA" virou "Yá" e "Miá"; "Claude
+# Code" virou "CloudCoor"; "Claude" virou "Claudio"; "capacitação" virou
+# "captação". Palavra comum em português ele já acerta e só gastaria espaço:
+# o Whisper usa no máximo ~223 tokens da lista (o programa avisa se passar).
+
+# IA
+IA
+Claude
+Claude Code
+ChatGPT
+Gemini
+OpenAI
+Anthropic
+LLM
+prompt
+agente
+subagente
+token
+Whisper
+
+# Código e ferramentas
+API
+GitHub
+Python
+SQL
+Docker
+Discord
+Obsidian
+Notion
+Copilot
+Excel
+
+# Redes e plataformas
+TikTok
+Instagram
+YouTube
+WhatsApp
+Kwai
+LinkedIn
+Zoom
+Google Meet
+
+# Siglas e palavras que ele troca
+TCC
+Libras
+capacitação

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.8.0 — 2026-10-10
+
+Gravação: canais separados até o fim, horário certo, listas de termos.
+Achados numa chamada real de 11 min.
+
+- **Frases partidas.** O texto misturava os segmentos dos dois canais antes de
+  montar os parágrafos, e qualquer fala de um lado cortava a frase do outro.
+  Agora cada canal vira parágrafos sozinho (mesmas regras de pausa e duração).
+  Gravação com duas faixas ganha `transcricao-eu.txt` e `transcricao-outros.txt`
+  (`[mm:ss]` por parágrafo; `[h:mm:ss]` a partir de 1 h), e o `transcricao.txt`
+  vira a linha do tempo dos dois (`[mm:ss] Outros: ...`). O `transcricao.json`
+  não muda de formato; ganha só a lista `faixas` no cabeçalho. YouTube, arquivo
+  e gravação com uma faixa ficam exatamente como antes.
+- **Horário absurdo.** Um "Aham" saiu com 37 s de duração. Em gravação o motor
+  liga o `word_timestamps` e o trecho vale da primeira à última palavra
+  (`--horario-por-palavra auto|sim|nao`). Nenhum parâmetro provado mudou.
+- **Pontuação do microfone** (investigado, não corrigido): `--vad-silencio-ms`
+  experimental, desligado. Explicação no PR.
+- `termos/tecnologia-ia.txt` e `termos/girias-brasil.txt`; `--termos` aceita
+  vários arquivos (a soma é conferida contra o limite de tokens).
+- Escrivão e Preceptor sabem dos arquivos por canal.
+
 ## 0.7.0 — 2026-10-10
 
 Visual, perfil "aula": slides + OCR.

@@ -218,6 +218,7 @@ def juntar_faixas(resultados: dict):
         origem="whisper",
         refeitos=refeitos,
         avisos=avisos,
+        faixas=list(resultados) if len(resultados) >= 2 else [],
     )
 
 

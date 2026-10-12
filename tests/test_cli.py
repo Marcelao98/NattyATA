@@ -1,3 +1,4 @@
+import argparse
 import io
 import json
 import tempfile
@@ -171,8 +172,11 @@ class TestGravacaoCli(unittest.TestCase):
     def test_transcrever_junta_as_faixas_com_o_falante(self):
         codigo, _, _ = self.gravar("--mic", "--transcrever", "--manter-audio")
         self.assertEqual(codigo, 0)
-        self.assertEqual(self.texto(), "Outros: Bom dia, pessoal.\n\nEu: Bom dia!\n")
+        # com duas faixas, o .txt é a linha do tempo e cada canal tem o seu arquivo
+        self.assertEqual(self.texto(), "[00:00] Outros: Bom dia, pessoal.\n\n[00:03] Eu: Bom dia!\n")
         (pasta_video,) = list(self.saida.iterdir())
+        self.assertEqual((pasta_video / "transcricao-outros.txt").read_text(encoding="utf-8"), "[00:00] Bom dia, pessoal.\n")
+        self.assertEqual((pasta_video / "transcricao-eu.txt").read_text(encoding="utf-8"), "[00:03] Bom dia!\n")
         fonte_json = json.loads((pasta_video / "fonte.json").read_text(encoding="utf-8"))
         self.assertEqual(fonte_json["tipo"], "gravacao")
         self.assertEqual(fonte_json["faixas"], ["sistema", "microfone"])
@@ -392,6 +396,68 @@ class TestVisualCli(unittest.TestCase):
         self.assertEqual(codigo, 0)
         self.assertIn("não se aplica", out)
         self.detectar.assert_not_called()
+
+
+class TestOpcoesDoWhisper(unittest.TestCase):
+    """Horário por palavra e VAD chegam ao motor; o resto fica como estava."""
+
+    def chamar(self, *argv, em_gravacao=False):
+        args = cli._argumentos(["entrada.opus", *argv])
+        if em_gravacao:
+            args = argparse.Namespace(**{**vars(args), "em_gravacao": True})
+        resultado = Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt")
+        with mock.patch.object(cli.motor, "modelo_em_cache", return_value=True), \
+                mock.patch.object(cli.motor, "transcrever", return_value=resultado) as transcrever, \
+                redirect_stdout(io.StringIO()):
+            cli._whisper(Path("a.wav"), args, "pt")
+        return transcrever.call_args.kwargs
+
+    def test_arquivo_e_youtube_ficam_como_antes(self):
+        opcoes = self.chamar()
+        self.assertIs(opcoes["palavras"], False)
+        self.assertIsNone(opcoes["vad_silencio_ms"])
+
+    def test_gravacao_liga_o_horario_por_palavra_no_automatico(self):
+        self.assertIs(self.chamar(em_gravacao=True)["palavras"], True)
+
+    def test_nao_desliga_mesmo_em_gravacao_e_sim_liga_em_qualquer_caso(self):
+        self.assertIs(self.chamar("--horario-por-palavra", "nao", em_gravacao=True)["palavras"], False)
+        self.assertIs(self.chamar("--horario-por-palavra", "sim")["palavras"], True)
+
+    def test_termos_aceita_varios_arquivos_e_junta_sem_repetir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp) / "a.txt", Path(tmp) / "b.txt"
+            a.write_text("IA\nClaude\n", encoding="utf-8")
+            b.write_text("mano\nia\n", encoding="utf-8")
+            self.assertEqual(self.chamar("--termos", str(a), str(b))["hotwords"], "IA, Claude, mano")
+            # repetindo a opção também vale
+            self.assertEqual(self.chamar("--termos", str(a), "--termos", str(b))["hotwords"], "IA, Claude, mano")
+            # a entrada pode vir depois dos arquivos, separada por --
+            args = cli._argumentos(["--termos", str(a), str(b), "--", "entrada.opus"])
+            self.assertEqual(args.entrada, "entrada.opus")
+            self.assertEqual(args.termos, [a, b])
+
+    def test_sem_termos_nao_manda_hotwords(self):
+        self.assertIsNone(self.chamar()["hotwords"])
+
+    def test_vad_silencio_ms(self):
+        self.assertEqual(self.chamar("--vad-silencio-ms", "500")["vad_silencio_ms"], 500)
+
+    def test_do_gravacao_marca_as_duas_faixas_como_gravacao(self):
+        vistos = []
+
+        def whisper(caminho, args, idioma):
+            vistos.append(getattr(args, "em_gravacao", False))
+            return Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt", segmentos=[Segmento(0.0, 1.0, "oi")])
+
+        args = cli._argumentos(["gravacoes/2026-10-10_09-00"])
+        faixas = {"sistema": Path("sistema.wav"), "microfone": Path("microfone.wav")}
+        with mock.patch.object(gravacao, "faixas_na_pasta", return_value=faixas), \
+                mock.patch.object(cli, "_whisper", whisper), redirect_stdout(io.StringIO()):
+            _, dados, resultado = cli._do_gravacao(args, Path("gravacoes/2026-10-10_09-00"))
+        self.assertEqual(vistos, [True, True])
+        self.assertEqual(resultado.faixas, ["sistema", "microfone"])
+        self.assertFalse(getattr(args, "em_gravacao", False))  # os args originais não mudam
 
 
 if __name__ == "__main__":

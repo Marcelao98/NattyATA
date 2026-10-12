@@ -34,8 +34,9 @@ duas metades compartilham:
 | Arquivo | Quem escreve | Conteúdo |
 |---|---|---|
 | `fonte.json` | Fonte | `tipo` (`youtube`, `arquivo` ou `gravacao`) e, no YouTube: url, título, canal, duração, data, id, capítulos do autor, descrição |
-| `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
-| `transcricao.txt` | Texto | parágrafos separados por linha em branco |
+| `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma; em gravação com duas faixas, também `faixas`) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
+| `transcricao.txt` | Texto | parágrafos separados por linha em branco. Em gravação com duas faixas é a **linha do tempo**: `[mm:ss] Outros: ...` / `[mm:ss] Eu: ...` |
+| `transcricao-eu.txt`, `transcricao-outros.txt` | Texto | só em gravação com duas faixas: um canal só, cada parágrafo começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h) |
 | `visual.json` | Visual | só com `--visual`: slides da tela (`eventos`: `tipo`, `inicio`, `fim`, `texto` por OCR, `confianca`, `frame`) |
 | `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
@@ -47,9 +48,15 @@ termos técnicos.
 
 `falante` só existe em gravação com duas faixas: `eu` (microfone) ou
 `outros` (som do PC). É opcional: fonte sem ele (YouTube, arquivo) continua
-igual, e os segmentos das duas faixas ficam intercalados por horário no mesmo
-arquivo. O `transcricao.txt` abre parágrafo a cada troca de falante, com
-`Eu:` ou `Outros:` na frente.
+igual, e os segmentos das duas faixas ficam intercalados por horário no
+`transcricao.json` (formato inalterado: os agentes dependem dele).
+
+Os **textos** de uma gravação com duas faixas montam cada canal sozinho, com
+as mesmas regras de pausa e duração máxima, e só depois juntam os parágrafos
+prontos, ordenados pelo início, na linha do tempo. Assim a fala de um lado
+nunca parte a frase do outro. Gravação com uma faixa só, YouTube e arquivo
+ficam como sempre: um `transcricao.txt` só, e `Eu:` na frente quando há
+`falante`.
 
 O áudio baixado é temporário e apagado depois da transcrição (não guardar
 mídia). Os agentes citam trechos pelo horário (`[12:34]`), que vem do
@@ -106,7 +113,9 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
   (o loopback não entrega nada em silêncio): cada passo escreve o que o
   relógio pede e completa com silêncio. A captura real é a única parte sem
   teste automático; o resto recebe as entradas por parâmetro. Também junta as
-  duas faixas transcritas num texto só, com `falante`.
+  duas faixas transcritas num resultado só, com `falante` e a lista `faixas`.
+  Em gravação o motor liga o horário por palavra (`word_timestamps`): o início
+  e o fim do trecho valem da primeira à última palavra.
 - `quadros.py`: vídeo → quadros via ffmpeg: um quadro pequeno em cinza a cada
   intervalo (em fluxo, nunca vai ao disco) e a extração de um quadro JPG em
   boa qualidade num horário.
@@ -124,7 +133,9 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
 - `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
   esses trechos sem os termos.
-- `texto.py`: segmentos → parágrafos.
+- `texto.py`: segmentos → parágrafos. Em gravação com duas faixas, um canal
+  por vez (`por_canal`), `formatar_canal` (`[mm:ss]` por parágrafo) e
+  `linha_do_tempo`.
 - `cli.py`: casca fina. `ata <url-arquivo-ou-pasta-de-gravacao>` produz a pasta
   do vídeo; `ata gravar` grava (e com `--transcrever` já transcreve). Depois de
   transcrever uma gravação, pergunta se apaga os `.wav` (padrão: guardar).
