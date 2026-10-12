@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-from .. import buscar, srt
+from .. import ata, buscar, srt
 
 RE_MARCA = re.compile(r"\s*\[\?\]")
 EXPORTAVEIS = {
@@ -78,6 +78,16 @@ def listar(raiz) -> list:
     return saida
 
 
+def _nomes(pasta: Path) -> dict:
+    dados = _json(pasta / "nomes.json")
+    return {str(k): str(v) for k, v in dados.items()} if isinstance(dados, dict) else {}
+
+
+def _com_nomes(texto: str, pasta: Path) -> str:
+    nomes = _nomes(pasta)
+    return ata.aplicar_nomes(texto, nomes) if nomes else texto
+
+
 def paragrafos(pasta: Path) -> list:
     """O `transcricao.txt` em [{inicio_s, horario, texto, duvidoso}] (o `[?]` sai do texto e vira flag)."""
     arquivo = pasta / "transcricao.txt"
@@ -87,7 +97,7 @@ def paragrafos(pasta: Path) -> list:
     for bloco in arquivo.read_text(encoding="utf-8").split("\n\n"):
         if not bloco.strip():
             continue
-        inicio_s, horario, texto = buscar.separar_horario(bloco)
+        inicio_s, horario, texto = buscar.separar_horario(_com_nomes(bloco, pasta))
         saida.append({"inicio_s": inicio_s, "horario": horario, "texto": RE_MARCA.sub("", texto).strip(),
                       "duvidoso": "[?]" in texto, "trechos": [m.strip() for m in re.findall(r"([^.?!]*?)\s*\[\?\]", texto)]})
     return saida
@@ -102,7 +112,7 @@ def ler(raiz, slug: str) -> dict:
         "cabecalho": {k: v for k, v in dados.items() if k != "segmentos"},
         "paragrafos": paragrafos(pasta),
         "falantes": _json(pasta / "falantes.json"),
-        "nomes": _json(pasta / "nomes.json") or {},
+        "nomes": _nomes(pasta),
         "gerados": gerados(pasta),
     }
 
@@ -132,7 +142,18 @@ def exportar(raiz, slug: str, formato: str):
         texto = saida.getvalue()
     else:
         texto = (pasta / "transcricao.json").read_text(encoding="utf-8")
+    if formato != "json":
+        texto = _com_nomes(texto, pasta)
     return texto.encode("utf-8"), EXPORTAVEIS[formato], f"{slug}.{formato}"
+
+
+def texto_para_prompt(raiz, slug: str):
+    """(título, transcrição com os nomes dados, origem) para o 'copiar prompt'."""
+    pasta = pasta_de(raiz, slug)
+    fonte = _json(pasta / "fonte.json") or {}
+    dados = _json(pasta / "transcricao.json") or {}
+    texto = _com_nomes((pasta / "transcricao.txt").read_text(encoding="utf-8"), pasta)
+    return fonte.get("titulo") or slug, texto, dados.get("origem")
 
 
 def arquivo_gerado(raiz, slug: str, nome: str) -> Path:

@@ -122,6 +122,28 @@ class TestBiblioteca(Base):
         self.assertEqual(self.chamar("/api/exportar/aula/exe")[0], 404)
 
 
+class TestRevisaoNaApi(Base):
+    def _video(self):
+        p = self.raiz / "aula"
+        p.mkdir()
+        (p / "fonte.json").write_text('{"titulo": "Aula", "tipo": "arquivo"}')
+        (p / "transcricao.json").write_text(json.dumps({"origem": "whisper", "segmentos": [
+            {"inicio": 0, "fim": 1, "texto": "oi natty", "pessoa": "Pessoa 1"}]}))
+        (p / "transcricao.txt").write_text("[00:00] Pessoa 1: oi natty\n")
+
+    def test_corrigir_nomes_e_prompt(self):
+        self._video()
+        r = json.loads(self.chamar("/api/video/aula/corrigir", {"errado": "natty", "certo": "Nattie", "guardar": True})[1])
+        self.assertEqual(r["vezes"], 1)
+        self.assertEqual(self.chamar("/api/video/aula/corrigir", {"errado": "", "certo": "x"})[0], 400)
+        self.assertEqual(json.loads(self.chamar("/api/video/aula/nomes", {"nomes": {"Pessoa 1": "Ana"}})[1])["nomes"], {"Pessoa 1": "Ana"})
+        corpo = json.loads(self.chamar("/api/video/aula/prompt?tipo=ata&foco=prazos")[1])
+        self.assertIn("Ana: oi Nattie", corpo["prompt"])
+        self.assertIn("aviso", corpo)
+        self.assertEqual(self.chamar("/api/video/aula/prompt?tipo=zzz")[0], 400)
+        self.assertEqual(len(json.loads(self.chamar("/api/prompts")[1])), 5)
+
+
 class TestTerminal(unittest.TestCase):
     def test_so_subcomandos_permitidos(self):
         with tempfile.TemporaryDirectory() as d:

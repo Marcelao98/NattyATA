@@ -10,6 +10,7 @@ tmp = Path(tempfile.mkdtemp()); raiz = tmp / "transcricoes"; raiz.mkdir()
 p = raiz / "aula-derivadas"; p.mkdir()
 (p/"fonte.json").write_text(json.dumps({"titulo":"Aula de derivadas <img src=x onerror=alert(1)>","tipo":"youtube","url":"https://youtu.be/abc","canal":"Prof. Ana"}))
 (p/"transcricao.json").write_text(json.dumps({"origem":"whisper","duracao_s":1390,"trechos_duvidosos":2,"segmentos":[{"inicio":5,"fim":9,"texto":"x"}]}))
+(p/"falantes.json").write_text(json.dumps({"modo":"agrupar","pessoas":[{"pessoa":"Pessoa 1","fala_s":600,"perfil":False},{"pessoa":"Pessoa 2","fala_s":300,"perfil":False}]}))
 (p/"transcricao.txt").write_text("[00:05] A derivada mede a taxa de variação [?] de uma função.\n\n[12:34] Para o nome da Natty, corrigir aqui vira regra.\n")
 
 def falso(t, ctx):
@@ -35,6 +36,9 @@ with sync_playwright() as pw:
     pg.screenshot(path="/tmp/uitest/3-biblioteca.png")
     pg.click("text=Abrir >> nth=-1") if False else None
     pg.click(".video button"); pg.wait_for_timeout(500); pg.screenshot(path="/tmp/uitest/4-leitor.png")
+    pg.click("#gaveta-botao"); pg.click("summary:has-text('Revisar')"); pg.fill("#f-errado","Natty"); pg.fill("#f-certo","Nattie"); pg.wait_for_timeout(200); pg.screenshot(path="/tmp/uitest/4b-revisao.png", full_page=True)
+    pg.click("button:has-text('Corrigir')"); pg.wait_for_timeout(600); pg.click("summary:has-text('Revisar')"); pg.screenshot(path="/tmp/uitest/4c-depois.png", full_page=True)
+    pg.click("#gaveta-botao")
     pg.fill("#comando","buscar derivada"); pg.press("#comando","Enter"); pg.wait_for_timeout(2500)
     pg.screenshot(path="/tmp/uitest/5-terminal.png")
     pg.set_viewport_size({"width":390,"height":900}); pg.wait_for_timeout(300); pg.screenshot(path="/tmp/uitest/6-mobile.png", full_page=True)
