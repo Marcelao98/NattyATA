@@ -793,6 +793,35 @@ class TestGlossarioNaCli(unittest.TestCase):
             self.assertIn("Não achei o glossário", erro.getvalue())
 
 
+class TestLoteNaCli(unittest.TestCase):
+    def test_roda_cada_item_grava_relatorio_e_sai_com_1_se_algum_falhou(self):
+        with tempfile.TemporaryDirectory() as d:
+            ok, ruim = Path(d) / "a.opus", Path(d) / "b.opus"
+            ok.write_bytes(b"x")
+            ruim.write_bytes(b"x")
+            lista = Path(d) / "lista.txt"
+            lista.write_text(f"{ok}\n{ruim}\n")
+            chamadas = []
+
+            def falso(argv, **kw):
+                chamadas.append(argv)
+                falhou = str(ruim) in argv
+                return mock.Mock(returncode=1 if falhou else 0, stdout="", stderr="Erro: ffmpeg" if falhou else "")
+
+            saida = io.StringIO()
+            with mock.patch("subprocess.run", falso), redirect_stdout(saida):
+                codigo = cli.main(["lote", str(lista), "--saida", str(Path(d) / "t")])
+            self.assertEqual((codigo, len(chamadas)), (1, 2))
+            self.assertIn("1 pronto(s), 1 com erro", saida.getvalue())
+            relatorio = json.loads((Path(d) / "t" / "lote-relatorio.json").read_text(encoding="utf-8"))
+            self.assertEqual(relatorio["itens"][1]["mensagem"], "Erro: ffmpeg")
+
+    def test_fonte_inexistente_e_erro(self):
+        with redirect_stderr(io.StringIO()) as erro:
+            self.assertEqual(cli.main(["lote", "/nao/existe.txt"]), 1)
+        self.assertIn("Não achei", erro.getvalue())
+
+
 class TestLegendaNaCli(unittest.TestCase):
     def test_gera_srt_e_erra_sem_transcricao(self):
         with tempfile.TemporaryDirectory() as d:

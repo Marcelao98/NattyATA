@@ -142,6 +142,7 @@ vatty arquivo.opus
 vatty gravar --mic --transcrever
 vatty "url" --visual auto
 vatty ui
+vatty lote lista.txt
 vatty buscar "termo"
 vatty corrigir transcricoes/aula --glossario glossario.txt
 vatty legenda transcricoes/aula --formato srt vtt

@@ -188,6 +188,31 @@ class Sessao:
 # Funções soltas: cada uma abre a própria sessão (e, portanto, lê a página de novo). Servem para
 # quem só precisa de uma coisa; a CLI usa `Sessao` para ler uma vez só.
 
+def listar_playlist(url: str, fabrica=None) -> tuple:
+    """
+    (título, [urls]) de uma playlist ou canal, sem abrir cada vídeo (`extract_flat`). URL de um vídeo só
+    devolve ele mesmo. Entrada sem endereço (só o id) vira o link do YouTube.
+    """
+    fabrica = fabrica or _fabrica_padrao()
+    with fabrica(_opcoes(skip_download=True, extract_flat="in_playlist")) as ydl:
+        info = ydl.extract_info(url, download=False) or {}
+    entradas = info.get("entries")
+    if entradas is None:
+        return info.get("title") or "", [url]
+    urls = []
+    for e in entradas:
+        if not e:
+            continue  # vídeo indisponível vem como None
+        endereco = e.get("url") or e.get("webpage_url")
+        if endereco and not eh_url(endereco) and e.get("id"):
+            endereco = f"https://www.youtube.com/watch?v={e['id']}"
+        elif not endereco and e.get("id"):
+            endereco = f"https://www.youtube.com/watch?v={e['id']}"
+        if endereco:
+            urls.append(endereco)
+    return info.get("title") or "", urls
+
+
 def inspecionar(url: str, fabrica=None) -> Video:
     with Sessao(url, fabrica) as sessao:
         return sessao.inspecionar()
