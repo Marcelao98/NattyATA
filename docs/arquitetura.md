@@ -192,3 +192,5 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
 
 - `buscar.py`: acha um termo (sem acento nem maiúscula) no `transcricao.txt` de todas as pastas de
   `transcricoes/`, com horário e, no YouTube, link `&t=`. `vatty buscar "termo" [--raiz] [--limite]`.
+- `srt.py`: `transcricao.json` → `legenda.srt`/`legenda.vtt`; quebra segmento longo e divide a duração
+  pelo tamanho do texto; `pessoa`/`falante` viram prefixo. `vatty legenda <pasta> --formato srt vtt`.

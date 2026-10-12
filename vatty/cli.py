@@ -7,7 +7,7 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import aula, ata, audio, diarizar, fonte, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, visual, vozes
+from . import aula, ata, audio, diarizar, fonte, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, srt, visual, vozes
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 PREPROCESSAR_ESCOLHAS = ("perguntar", "sim", "nao")
@@ -587,6 +587,21 @@ def _main_ata(argv) -> int:
     return 0
 
 
+def _main_legenda(argv) -> int:
+    p = argparse.ArgumentParser(prog="vatty legenda", description="Gera legenda .srt/.vtt de uma pasta já transcrita.")
+    p.add_argument("pasta")
+    p.add_argument("--formato", nargs="+", choices=srt.FORMATOS, default=["srt"])
+    args = p.parse_args(argv)
+    try:
+        arquivos = srt.gerar(args.pasta, args.formato)
+    except srt.LegendaErro as e:
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    for arquivo in arquivos:
+        print(f"Legenda pronta: {arquivo}")
+    return 0
+
+
 def main(argv=None) -> int:
     # Título com emoji num terminal cp1252 não pode derrubar o programa. `line_buffering`: com a saída
     # redirecionada (arquivo, outro programa) o Python guarda o texto num buffer e parece travado.
@@ -600,6 +615,8 @@ def main(argv=None) -> int:
         return _main_ata(argv[1:])
     if argv and argv[0] == "perfil":
         return _main_perfil(argv[1:])
+    if argv and argv[0] == "legenda":
+        return _main_legenda(argv[1:])
     if argv and argv[0] == "buscar":
         from . import buscar
         return buscar.main(argv[1:])
