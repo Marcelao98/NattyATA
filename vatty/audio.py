@@ -32,19 +32,24 @@ class ErroDeDecodificacao(RuntimeError):
     """O ffmpeg não conseguiu ler o arquivo."""
 
 
-def comando_ffmpeg(executavel: str, caminho: Path) -> list:
-    """Linha de comando que manda PCM f32le mono 16 kHz pra saída padrão."""
-    return [
+def comando_ffmpeg(executavel: str, caminho: Path, filtro: str | None = None) -> list:
+    """Linha de comando que manda PCM f32le mono 16 kHz pra saída padrão (com `filtro`, passa por ele antes)."""
+    comando = [
         executavel, "-nostdin", "-hide_banner", "-loglevel", "error",
         "-i", str(caminho),
-        "-vn", "-f", "f32le", "-acodec", "pcm_f32le", "-ac", "1", "-ar", str(TAXA),
-        "-",
+        "-vn",
     ]
+    if filtro:
+        comando += ["-af", filtro]
+    return comando + ["-f", "f32le", "-acodec", "pcm_f32le", "-ac", "1", "-ar", str(TAXA), "-"]
 
 
-def carregar(caminho, executar=subprocess.run, achar=shutil.which):
+def carregar(caminho, executar=subprocess.run, achar=shutil.which, filtro: str | None = None,
+             pasta_trabalho=None):
     """
     Caminho do arquivo -> (array float32, duração em segundos).
+    `filtro` é uma cadeia de filtros do ffmpeg (ver preprocessar.py); `pasta_trabalho` é onde o ffmpeg
+    roda, para o filtro achar um arquivo (o modelo do arnndn) só pelo nome, sem escapar caminho.
     `executar` e `achar` existem pros testes trocarem o ffmpeg por um dublê.
     """
     caminho = Path(caminho)
@@ -53,7 +58,11 @@ def carregar(caminho, executar=subprocess.run, achar=shutil.which):
     executavel = achar("ffmpeg")
     if not executavel:
         raise FfmpegAusente(COMO_INSTALAR_FFMPEG)
-    saida = executar(comando_ffmpeg(executavel, caminho), capture_output=True)
+    opcoes = {}
+    if pasta_trabalho is not None:
+        caminho = caminho.resolve()  # o ffmpeg vai rodar em outra pasta
+        opcoes["cwd"] = str(pasta_trabalho)
+    saida = executar(comando_ffmpeg(executavel, caminho, filtro), capture_output=True, **opcoes)
     if saida.returncode != 0:
         erro = saida.stderr.decode("utf-8", errors="replace").strip()
         raise ErroDeDecodificacao(f"ffmpeg não conseguiu ler {caminho.name}: {erro}")

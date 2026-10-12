@@ -7,9 +7,10 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import aula, fonte, gravacao, legenda, motor, ocr, pasta, quadros, visual
+from . import aula, fonte, gravacao, legenda, motor, ocr, pasta, preprocessar, quadros, visual
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
+PREPROCESSAR_ESCOLHAS = ("perguntar", "sim", "nao")
 TEXTO_ESCOLHAS = ("perguntar", "legenda", "whisper")
 VISUAL_ESCOLHAS = ("nenhum", "auto", "aula")
 
@@ -50,6 +51,13 @@ def _opcoes_comuns(p) -> None:
     p.add_argument("--vad-silencio-ms", dest="vad_silencio_ms", type=int, default=None, metavar="MS",
                    help="experimental: pausa mínima (ms) que corta a fala no filtro de voz do Whisper. "
                         "Sem a opção, fica o padrão do faster-whisper (160)")
+    p.add_argument("--preprocessar", choices=PREPROCESSAR_ESCOLHAS, default="perguntar",
+                   help="antes do Whisper: corta o ronco grave, tira o ruído e sobe a voz baixa (áudio de WhatsApp, "
+                        "celular). 'perguntar' (padrão) mede o áudio e só pergunta se algo estiver ruim; "
+                        "'sim' aplica sempre; 'nao' não mede nem mexe")
+    p.add_argument("--ruido-modelo", dest="ruido_modelo", default=None, metavar="NOME_OU_ARQUIVO",
+                   help=f"modelo de ruído do arnndn: {', '.join(preprocessar.MODELOS_RUIDO)} (padrão: "
+                        f"{preprocessar.MODELO_RUIDO_PADRAO}, baixado na primeira vez) ou o caminho de um .rnnn")
 
 
 def _argumentos(argv):
@@ -75,15 +83,20 @@ def _whisper(caminho, args, idioma):
     if not motor.modelo_em_cache(args.modelo):
         print(f"Primeira execução com '{args.modelo}': o modelo (cerca de 1,5 GB) vai ser baixado "
               "pro cache do Hugging Face. Isso só acontece uma vez.")
-    print("Transcrevendo com Whisper...")
     modo = getattr(args, "horario_por_palavra", "auto")
     palavras = modo == "sim" or (modo == "auto" and getattr(args, "em_gravacao", False))
     try:
+        preparo = preprocessar.preparar(
+            caminho, getattr(args, "preprocessar", "nao"), perguntar=_perguntar_preprocessar,
+            interativo=sys.stdin.isatty(), ruido_modelo=getattr(args, "ruido_modelo", None))
+        print("Transcrevendo com Whisper...")
+        extras = {"carregar_audio": preparo.carregar_audio} if preparo.carregar_audio else {}
         resultado = motor.transcrever(caminho, modelo=args.modelo, idioma=idioma, hotwords=hotwords,
                                       palavras=palavras, vad_silencio_ms=getattr(args, "vad_silencio_ms", None),
-                                      progresso=_mostrar_progresso)
+                                      progresso=_mostrar_progresso, **extras)
     except (FileNotFoundError, FfmpegAusente, ErroDeDecodificacao) as e:
         raise Erro(str(e)) from e
+    resultado.preprocessamento = preparo.info
     print()
     for aviso in resultado.avisos:
         print(f"Aviso: {aviso}")
@@ -92,6 +105,19 @@ def _whisper(caminho, args, idioma):
         for r in resultado.refeitos:
             print(f"  [{_relogio(r['inicio'])}-{_relogio(r['fim'])}] {r['motivo']}")
     return resultado
+
+
+def _perguntar_preprocessar(diagnostico) -> bool:
+    """Enter aceita a recomendação (aplicar), como no `--visual auto`."""
+    while True:
+        try:
+            resposta = input("Aplicar o pré-processamento (tirar ronco e ruído, subir a voz)? [S/n] ").strip().lower()
+        except EOFError:
+            raise Erro("cancelado")
+        if resposta in ("", "s", "sim"):
+            return True
+        if resposta in ("n", "nao", "não"):
+            return False
 
 
 # --- Legenda -----------------------------------------------------------------

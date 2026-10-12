@@ -56,6 +56,7 @@ class Resultado:
     refeitos: list = field(default_factory=list)  # trechos refeitos sem os termos (ver repeticao.py)
     avisos: list = field(default_factory=list)
     faixas: list = field(default_factory=list)  # só em gravação com duas faixas: ["sistema", "microfone"]
+    preprocessamento: dict | None = None  # só se o áudio passou pelo pré-processamento (ver preprocessar.py)
 
 
 def modelo_em_cache(nome: str = MODELO_PADRAO) -> bool:

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.0 — 2026-10-12
+
+Pré-processamento opcional do áudio antes do Whisper (feito pensando em áudio de WhatsApp).
+
+- `--preprocessar perguntar|sim|nao` (padrão `perguntar`): a Vatty mede o áudio (nível da fala,
+  relação sinal/ruído, ronco grave, estouro) e, se parecer ruim, pergunta se aplica. Sem terminal,
+  só avisa; `sim` força, `nao` pula.
+- Cadeia no ffmpeg: mono 16 kHz, `highpass` 80 Hz (dois estágios), `arnndn` (rede neural RNNoise),
+  `speechnorm` para subir a fala baixa. Sem o modelo, cai no `afftdn`.
+- `--ruido-modelo` escolhe o modelo (nome conhecido ou arquivo `.rnnn`). O modelo baixa uma vez para
+  `~/.cache/vatty/rnnoise` (`VATTY_CACHE` muda); nenhum peso entra no repositório.
+- O que foi feito fica no cabeçalho do `transcricao.json` (`preprocessamento`); sem uso, nada muda.
+- Limiares e parâmetros foram validados só em sinal sintético: ajustar com áudio real.
+
 ## 0.10.0 — 2026-10-12
 
 Natty-ATA virou **Vatty** (*Video Audio To Almost Everything*). Só nome e

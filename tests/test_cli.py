@@ -402,7 +402,8 @@ class TestOpcoesDoWhisper(unittest.TestCase):
     """Horário por palavra e VAD chegam ao motor; o resto fica como estava."""
 
     def chamar(self, *argv, em_gravacao=False):
-        args = cli._argumentos(["entrada.opus", *argv])
+        # --preprocessar nao: estes testes olham só as opções do Whisper (o arquivo "a.wav" nem existe)
+        args = cli._argumentos(["entrada.opus", "--preprocessar", "nao", *argv])
         if em_gravacao:
             args = argparse.Namespace(**{**vars(args), "em_gravacao": True})
         resultado = Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt")
@@ -458,6 +459,52 @@ class TestOpcoesDoWhisper(unittest.TestCase):
         self.assertEqual(vistos, [True, True])
         self.assertEqual(resultado.faixas, ["sistema", "microfone"])
         self.assertFalse(getattr(args, "em_gravacao", False))  # os args originais não mudam
+
+
+class TestPreprocessarNaCli(unittest.TestCase):
+    """--preprocessar: o padrão pergunta, e o que o preparo devolve chega ao motor e ao resultado."""
+
+    def test_padrao_e_perguntar_e_aceita_sim_nao(self):
+        self.assertEqual(cli._argumentos(["a.opus"]).preprocessar, "perguntar")
+        self.assertEqual(cli._argumentos(["a.opus", "--preprocessar", "sim"]).preprocessar, "sim")
+        self.assertEqual(cli._argumentos(["a.opus", "--preprocessar", "nao"]).preprocessar, "nao")
+        self.assertIsNone(cli._argumentos(["a.opus"]).ruido_modelo)
+        self.assertEqual(cli._argumentos(["a.opus", "--ruido-modelo", "beguiling-drafter"]).ruido_modelo,
+                         "beguiling-drafter")
+
+    def _rodar(self, preparo, *argv):
+        args = cli._argumentos(["entrada.opus", *argv])
+        resultado = Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt")
+        with mock.patch.object(cli.motor, "modelo_em_cache", return_value=True), \
+                mock.patch.object(cli.motor, "transcrever", return_value=resultado) as transcrever, \
+                mock.patch.object(cli.preprocessar, "preparar", return_value=preparo) as preparar, \
+                redirect_stdout(io.StringIO()):
+            devolvido = cli._whisper(Path("a.wav"), args, "pt")
+        return devolvido, transcrever.call_args.kwargs, preparar
+
+    def test_o_que_o_preparo_devolve_chega_ao_motor_e_ao_resultado(self):
+        carregar = lambda caminho: ([0.0], 1.0)
+        info = {"aplicado": True, "filtro": "highpass=f=80"}
+        resultado, kwargs, preparar = self._rodar(cli.preprocessar.Preparo(carregar, info), "--preprocessar", "sim",
+                                                  "--ruido-modelo", "leavened-quisling")
+        self.assertIs(kwargs["carregar_audio"], carregar)
+        self.assertEqual(resultado.preprocessamento, info)
+        self.assertEqual(preparar.call_args.args[1], "sim")
+        self.assertEqual(preparar.call_args.kwargs["ruido_modelo"], "leavened-quisling")
+
+    def test_sem_preprocessamento_o_motor_carrega_como_sempre(self):
+        resultado, kwargs, _ = self._rodar(cli.preprocessar.Preparo())
+        self.assertNotIn("carregar_audio", kwargs)
+        self.assertIsNone(resultado.preprocessamento)
+
+    def test_pergunta_enter_aceita_n_recusa(self):
+        for resposta, esperado in (("", True), ("s", True), ("n", False), ("não", False)):
+            with mock.patch("builtins.input", return_value=resposta), redirect_stdout(io.StringIO()):
+                self.assertIs(cli._perguntar_preprocessar(None), esperado, resposta)
+
+    def test_pergunta_cancelada_sem_entrada(self):
+        with mock.patch("builtins.input", side_effect=EOFError), self.assertRaises(cli.Erro):
+            cli._perguntar_preprocessar(None)
 
 
 if __name__ == "__main__":

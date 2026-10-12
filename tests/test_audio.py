@@ -53,6 +53,39 @@ class TestAudio(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             audio.carregar(self.arquivo.with_name("nao-existe.opus"), achar=lambda nome: "ffmpeg")
 
+    def test_sem_filtro_o_comando_e_o_de_sempre(self):
+        cmd = audio.comando_ffmpeg("ffmpeg", Path("a.opus"))
+        self.assertNotIn("-af", cmd)
+        self.assertEqual(cmd[-1], "-")
+
+    def test_filtro_entra_antes_do_formato_de_saida(self):
+        cmd = audio.comando_ffmpeg("ffmpeg", Path("a.opus"), filtro="highpass=f=80")
+        i = cmd.index("-af")
+        self.assertEqual(cmd[i + 1], "highpass=f=80")
+        self.assertLess(i, cmd.index("-f"))  # o filtro vem antes da conversão final para PCM
+        self.assertEqual(cmd[-1], "-")
+
+    def test_pasta_de_trabalho_vira_cwd_e_o_arquivo_vira_caminho_absoluto(self):
+        chamadas = []
+
+        def executar(cmd, capture_output, cwd=None):
+            chamadas.append((cmd, cwd))
+            return SimpleNamespace(returncode=0, stdout=np.zeros(160, dtype=np.float32).tobytes(), stderr=b"")
+
+        audio.carregar(self.arquivo, executar=executar, achar=lambda nome: "ffmpeg",
+                       filtro="arnndn=m=sh.rnnn", pasta_trabalho=self.arquivo.parent)
+        cmd, cwd = chamadas[0]
+        self.assertEqual(cwd, str(self.arquivo.parent))
+        self.assertIn(str(self.arquivo.resolve()), cmd)
+        self.assertIn("arnndn=m=sh.rnnn", cmd)
+
+    def test_sem_pasta_de_trabalho_nao_manda_cwd(self):
+        # o dublê antigo não aceita `cwd`: sem pasta de trabalho, ele não pode ser passado
+        def executar(cmd, capture_output):
+            return SimpleNamespace(returncode=0, stdout=np.zeros(160, dtype=np.float32).tobytes(), stderr=b"")
+
+        audio.carregar(self.arquivo, executar=executar, achar=lambda nome: "ffmpeg", filtro="anull")
+
 
 if __name__ == "__main__":
     unittest.main()

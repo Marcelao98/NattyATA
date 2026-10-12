@@ -191,5 +191,20 @@ class TestJuntarFaixas(unittest.TestCase):
         self.assertIsNone(original.falante)
 
 
+class TestPreprocessamentoPorFaixa(unittest.TestCase):
+    def _resultado(self, pre=None):
+        return Resultado(fonte="a", duracao_s=1.0, modelo="m", idioma="pt",
+                         segmentos=[Segmento(0.0, 1.0, "oi")], preprocessamento=pre)
+
+    def test_so_a_faixa_pre_processada_aparece(self):
+        info = {"aplicado": True}
+        r = gravacao.juntar_faixas({"sistema": self._resultado(), "microfone": self._resultado(info)})
+        self.assertEqual(r.preprocessamento, {"microfone": info})
+
+    def test_nenhuma_faixa_pre_processada_fica_sem_o_campo(self):
+        r = gravacao.juntar_faixas({"sistema": self._resultado(), "microfone": self._resultado()})
+        self.assertIsNone(r.preprocessamento)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -181,6 +181,23 @@ nomes e termos técnicos; nesse caso, vale o Whisper.
 | `--texto` | `perguntar` | YouTube: `legenda`, `whisper` ou `perguntar` (sem terminal interativo, passe `legenda` ou `whisper`) |
 | `--visual` | `nenhum` | `aula` (slides + OCR), `auto` (palpite e pergunta) ou `nenhum`; precisa do Tesseract |
 
+### Áudio ruim (WhatsApp, voz baixa): `--preprocessar`
+
+Antes do Whisper a Vatty pode limpar o áudio: corta o ronco grave (`highpass`), tira o ruído com a
+rede neural RNNoise (`arnndn`) e sobe a fala baixa (`speechnorm`). Ela mede o áudio primeiro e só
+pergunta se parecer ruim.
+
+```bash
+vatty zap.opus                       # mede e pergunta se precisar
+vatty zap.opus --preprocessar sim    # aplica sempre
+vatty zap.opus --preprocessar nao    # pula
+vatty zap.opus --ruido-modelo arquivo.rnnn
+```
+
+O modelo de ruído (~300 KB) baixa uma vez para `~/.cache/vatty/rnnoise` (`VATTY_CACHE` muda a
+pasta) e não fica no repositório. Sem ele, cai num filtro simples (`afftdn`). O que foi aplicado
+fica no `transcricao.json`. Os limiares foram validados só em sinal sintético: compare com e sem.
+
 ### Lista de termos (`--termos`)
 
 Ajuda o Whisper com palavras que ele costuma errar: termos em inglês, siglas,

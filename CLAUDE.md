@@ -144,7 +144,11 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 - `aula.py`: junta `quadros`, `visual` e `ocr`: `detectar` (uma passada),
   `palpite` (OCR em até 4 slides) e `montar` (todos os slides → `visual.json`
   e `frames/`).
-- `audio.py`: arquivo → array float32 mono 16 kHz via ffmpeg.
+- `audio.py`: arquivo → array float32 mono 16 kHz via ffmpeg (aceita um filtro `-af`).
+- `preprocessar.py`: etapa opcional antes do Whisper (`--preprocessar`). Mede o áudio (nível, SNR,
+  ronco, estouro), pergunta se recomendado e aplica `highpass` x2 → `arnndn` → `speechnorm` na
+  decodificação. Modelo `.rnnn` baixado para o cache (nunca no repositório); sem ele, `afftdn`.
+  Registra `preprocessamento` no cabeçalho do `transcricao.json`.
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
 - `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
   esses trechos sem os termos.

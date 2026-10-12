@@ -121,5 +121,21 @@ class TestPasta(unittest.TestCase):
             self.assertEqual(dados["segmentos"], [])
 
 
+class TestCabecalhoPreprocessamento(unittest.TestCase):
+    def _cabecalho(self, **extra):
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta.gravar(Path(tmp), {"tipo": "arquivo"},
+                         Resultado(fonte="x", duracao_s=1.0, modelo="m", idioma="pt",
+                                   segmentos=[Segmento(0.0, 1.0, "oi")], **extra))
+            return json.loads((Path(tmp) / "transcricao.json").read_text(encoding="utf-8"))
+
+    def test_sem_preprocessamento_o_cabecalho_fica_como_antes(self):
+        self.assertNotIn("preprocessamento", self._cabecalho())
+
+    def test_com_preprocessamento_o_cabecalho_registra_o_que_foi_feito(self):
+        info = {"aplicado": True, "filtro": "highpass=f=80", "ruido": "arnndn:sh.rnnn"}
+        self.assertEqual(self._cabecalho(preprocessamento=info)["preprocessamento"], info)
+
+
 if __name__ == "__main__":
     unittest.main()

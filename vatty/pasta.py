@@ -36,6 +36,8 @@ def _transcricao_json(resultado) -> str:
     }
     if resultado.faixas:  # só gravação com duas faixas; os outros casos saem como antes
         cabecalho["faixas"] = resultado.faixas
+    if getattr(resultado, "preprocessamento", None):  # só se o áudio foi pré-processado
+        cabecalho["preprocessamento"] = resultado.preprocessamento
     linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
     # `falante` só aparece quando existe (gravação com duas faixas).
     dados = [{k: v for k, v in asdict(s).items() if k != "falante" or v is not None} for s in resultado.segmentos]
