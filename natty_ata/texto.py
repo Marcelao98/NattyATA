@@ -13,16 +13,17 @@ DURACAO_MAX_PARAGRAFO_S = 60.0
 ROTULOS = {"eu": "Eu", "outros": "Outros"}
 
 
-def juntar_em_paragrafos(
+def juntar_com_inicio(
     segmentos,
     pausa_max: float = PAUSA_PARAGRAFO_S,
     duracao_max: float = DURACAO_MAX_PARAGRAFO_S,
 ) -> list:
     """
-    [Segmento(inicio, fim, texto)] -> [texto do parágrafo], juntando segmentos
-    consecutivos quando a pausa entre o fim de um e o começo do outro é menor
-    que `pausa_max`. Pausa maior, ou o parágrafo passar de `duracao_max`
-    segundos, abre parágrafo novo. Texto vazio é ignorado.
+    [Segmento(inicio, fim, texto)] -> [(inicio_s, texto do parágrafo)], juntando
+    segmentos consecutivos quando a pausa entre o fim de um e o começo do outro
+    é menor que `pausa_max`. Pausa maior, ou o parágrafo passar de `duracao_max`
+    segundos, abre parágrafo novo. Texto vazio é ignorado. Quando há `falante`,
+    cada troca abre parágrafo novo, com "Eu:" ou "Outros:" na frente.
     """
     paragrafos = []
     comeco = ultimo_fim = falante_atual = None
@@ -33,15 +34,24 @@ def juntar_em_paragrafos(
         falante = getattr(seg, "falante", None)
         mesmo_falante = falante == falante_atual
         if paragrafos and mesmo_falante and seg.inicio - ultimo_fim < pausa_max and seg.fim - comeco <= duracao_max:
-            paragrafos[-1] = f"{paragrafos[-1]} {texto}"
+            paragrafos[-1] = (paragrafos[-1][0], f"{paragrafos[-1][1]} {texto}")
         else:
             # Quem fala só aparece quando há mais de uma faixa; sem falante, nada muda.
             rotulo = f"{ROTULOS.get(falante, falante)}: " if falante else ""
-            paragrafos.append(f"{rotulo}{texto}")
+            paragrafos.append((seg.inicio, f"{rotulo}{texto}"))
             comeco = seg.inicio
         falante_atual = falante
         ultimo_fim = seg.fim
     return paragrafos
+
+
+def juntar_em_paragrafos(
+    segmentos,
+    pausa_max: float = PAUSA_PARAGRAFO_S,
+    duracao_max: float = DURACAO_MAX_PARAGRAFO_S,
+) -> list:
+    """Como `juntar_com_inicio`, só com o texto de cada parágrafo."""
+    return [texto for _, texto in juntar_com_inicio(segmentos, pausa_max, duracao_max)]
 
 
 def formatar(paragrafos: list) -> str:

@@ -44,6 +44,24 @@ class TestParagrafos(unittest.TestCase):
         self.assertEqual(formatar([]), "")
 
 
+class TestJuntarComInicio(unittest.TestCase):
+    def test_devolve_o_inicio_de_cada_paragrafo(self):
+        segs = [Segmento(3.0, 5.0, "Primeira."), Segmento(5.5, 7.0, "Segue."), Segmento(70.0, 72.0, "Depois.")]
+        self.assertEqual(texto.juntar_com_inicio(segs), [(3.0, "Primeira. Segue."), (70.0, "Depois.")])
+
+    def test_fala_continua_abre_paragrafo_novo_a_cada_minuto_com_o_inicio_certo(self):
+        segs = [Segmento(t, t + 10, f"s{t}") for t in range(0, 130, 10)]
+        self.assertEqual([i for i, _ in texto.juntar_com_inicio(segs)], [0, 60, 120])
+
+    def test_com_falante_o_rotulo_vai_no_texto(self):
+        segs = [Segmento(0.0, 1.0, "oi", "eu"), Segmento(5.0, 6.0, "olá", "outros")]
+        self.assertEqual(texto.juntar_com_inicio(segs), [(0.0, "Eu: oi"), (5.0, "Outros: olá")])
+
+    def test_juntar_em_paragrafos_continua_so_com_o_texto(self):
+        segs = [Segmento(3.0, 5.0, "Primeira."), Segmento(70.0, 72.0, "Depois.")]
+        self.assertEqual(juntar_em_paragrafos(segs), ["Primeira.", "Depois."])
+
+
 class TestCanaisSeparados(unittest.TestCase):
     # Trecho real de uma chamada de 11 min: a fala de "eu" no meio da frase de
     # "outros" não pode partir a frase.

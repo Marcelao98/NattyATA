@@ -35,9 +35,9 @@ duas metades compartilham:
 |---|---|---|
 | `fonte.json` | Fonte | `tipo` (`youtube`, `arquivo` ou `gravacao`) e, no YouTube: url, título, canal, duração, data, id, capítulos do autor, descrição |
 | `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma; em gravação com duas faixas, também `faixas`) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
-| `transcricao.txt` | Texto | parágrafos separados por linha em branco. Em gravação com duas faixas é a **linha do tempo**: `[mm:ss] Outros: ...` / `[mm:ss] Eu: ...` |
+| `transcricao.txt` | Texto | parágrafos separados por linha em branco, cada um começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h): é o que os agentes leem. Em gravação, `Eu:` / `Outros:` depois do horário; com duas faixas é a **linha do tempo** dos dois |
 | `transcricao-eu.txt`, `transcricao-outros.txt` | Texto | só em gravação com duas faixas: um canal só, cada parágrafo começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h) |
-| `visual.json` | Visual | só com `--visual`: slides da tela (`eventos`: `tipo`, `inicio`, `fim`, `texto` por OCR, `confianca`, `frame`) |
+| `visual.json` | Visual | só com `--visual`: slides da tela (`eventos`: `tipo`, `inicio`, `fim`, `texto` por OCR, `confianca`, `frame`); o cabeçalho traz `ruido_removido` (linhas que se repetiam em muitos slides, como a barra do navegador) e `slides_sem_texto_descartados` |
 | `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
 | `didatico-<tema>.md` | Preceptor | um arquivo por pedido |
@@ -123,7 +123,10 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
   cada quadro com o último slide aceito; só aceita a troca depois que a tela
   estabiliza (espera a animação). Regiões que mexem o tempo todo (câmera do
   professor, ruído) são ignoradas por uma máscara de movimento por blocos.
-  Junta slides vizinhos com texto quase igual; dá o palpite do perfil.
+  Junta slides vizinhos com texto quase igual; dá o palpite do perfil. Também
+  limpa o OCR (`limpar_ruido`): linha que aparece em 30% ou mais dos slides com
+  texto (barra do navegador, abas) sai do texto, e slide que fica sem texto é
+  descartado e contado.
 - `ocr.py`: Tesseract chamado pelo terminal (sem pytesseract), com a confiança
   por palavra. Confere programa e idiomas antes de processar o vídeo.
 - `aula.py`: junta `quadros`, `visual` e `ocr`: `detectar` (uma passada),
@@ -153,11 +156,22 @@ parar para perguntar. Por isso a conversa principal:
    candidata, pergunta);
 2. pergunta o que o agente precisa saber, sugerindo opções a partir dos
    capítulos do `fonte.json` (foco para o Escrivão, nível e tema para o
-   Preceptor);
+   Preceptor) e a **extensão** (`curto`, `medio` ou `completo`; sem resposta,
+   `medio`);
 3. chama o subagente com um briefing completo: pasta, foco ou nível,
-   arquivo de saída e a data de hoje;
+   extensão, arquivo de saída e a data de hoje;
 4. repassa ao usuário o resumo curto que o agente devolveu e o caminho do
    arquivo. O documento em si fica na pasta, não na conversa.
+
+**Custo (tokens).** Os dois agentes rodam no **Sonnet** (`model: sonnet` no
+arquivo de cada um): extrair e reorganizar texto não pede o modelo mais caro. O
+que mais custa é o que eles escrevem, então a **extensão** limita o tamanho
+(`curto`: até 15 pontos; `medio`, o padrão: até 5 por capítulo; `completo`: sem
+limite), e eles escrevem o arquivo numa chamada só. Leem o `transcricao.txt`
+(com `[mm:ss]` por parágrafo, metade dos caracteres do `.json`) e do
+`transcricao.json` só o cabeçalho; para um horário mais exato, usam `Grep`. O
+código também enxuga o `visual.json` (linhas fixas de OCR e slides sem texto
+saem). Tudo isso sem LLM no pacote.
 
 O subagente mantém o contexto isolado: a transcrição de 1 h tem uns 20 mil
 tokens e não deve encher a conversa principal. Até uns 3 h de vídeo a

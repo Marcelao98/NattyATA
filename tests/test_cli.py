@@ -57,13 +57,13 @@ class TestFluxoYoutube(unittest.TestCase):
         codigo, out, _ = self.rodar(respostas=["l"])
         self.assertEqual(codigo, 0)
         self.assertIn("Olá, turma.", out)  # mostrou o trecho antes de perguntar
-        self.assertEqual(self.transcricao(), "Olá, turma.\n")
+        self.assertEqual(self.transcricao(), "[00:01] Olá, turma.\n")
         cli._whisper.assert_not_called()
 
     def test_usuario_prefere_whisper(self):
         codigo, _, _ = self.rodar(respostas=["x", "w"])
         self.assertEqual(codigo, 0)
-        self.assertEqual(self.transcricao(), "do whisper\n")
+        self.assertEqual(self.transcricao(), "[00:00] do whisper\n")
 
     def test_sem_terminal_exige_flag(self):
         codigo, _, err = self.rodar(tty=False)
@@ -74,7 +74,7 @@ class TestFluxoYoutube(unittest.TestCase):
     def test_flag_legenda_nao_pergunta(self):
         codigo, _, _ = self.rodar("--texto", "legenda", tty=False)
         self.assertEqual(codigo, 0)
-        self.assertEqual(self.transcricao(), "Olá, turma.\n")
+        self.assertEqual(self.transcricao(), "[00:01] Olá, turma.\n")
 
     def test_sem_legenda_vai_direto_pro_whisper(self):
         sem = fonte.Video(**{**VIDEO.__dict__, "legendas": {}})
@@ -82,7 +82,7 @@ class TestFluxoYoutube(unittest.TestCase):
             codigo, out, _ = self.rodar(tty=False)
         self.assertEqual(codigo, 0)
         self.assertIn("Sem legenda", out)
-        self.assertEqual(self.transcricao(), "do whisper\n")
+        self.assertEqual(self.transcricao(), "[00:00] do whisper\n")
 
 
 class _Tom:

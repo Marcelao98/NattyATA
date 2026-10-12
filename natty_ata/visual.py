@@ -9,7 +9,9 @@ Os números abaixo são chutes razoáveis, ainda não medidos em vídeo real:
 ajustar com a prática.
 """
 
-from dataclasses import dataclass
+import re
+from collections import Counter
+from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
 
 import numpy as np
@@ -36,6 +38,16 @@ AMOSTRAS_ESTAVEIS = 2       # quadros seguidos parados antes de aceitar a troca 
 MAX_SLIDES = 300            # teto: uma aula de 3 h não pode gerar milhares de quadros
 SIMILARIDADE_JUNTAR = 0.9   # textos de slides vizinhos parecidos assim viram um só
 MIN_CARACTERES_JUNTAR = 12  # texto curto demais não prova que o slide é o mesmo
+
+# Limpeza do OCR (para o agente gastar menos tokens lendo o visual.json). Numa
+# gravação de tela, a barra do navegador e as abas aparecem em quase todo
+# quadro (num vídeo real de 27 min, em 167 slides) e dobravam o tamanho do
+# arquivo. Linha que se repete em muitos slides é "ruído fixo": sai do texto.
+RUIDO_FRACAO_MIN = 0.3        # a linha aparece em pelo menos esta fração dos slides com texto
+RUIDO_SLIDES_MIN = 5          # com menos slides com texto não dá para saber o que é fixo
+RUIDO_MIN_CARACTERES = 8      # linha curta ("1", "Sim") repete por acaso: nunca é ruído
+RUIDO_SIMILARIDADE = 0.9      # o OCR lê a mesma barra com pequenas diferenças a cada quadro
+RUIDO_MAX_LISTADAS = 10       # quantas linhas de ruído o cabeçalho do visual.json registra
 
 # Palpite do perfil (indicadores, só uma dica: quem decide é o usuário).
 TROCAS_POR_MIN_CORTE = 8.0
@@ -165,6 +177,49 @@ def juntar_parecidos(slides, similaridade: float = SIMILARIDADE_JUNTAR):
         else:
             juntos.append(slide)
     return juntos
+
+
+def _chave(linha: str) -> str:
+    return " ".join(re.findall(r"\w+", linha.lower()))
+
+
+def limpar_ruido(slides) -> tuple:
+    """
+    Tira do texto dos slides as linhas que se repetem em muitos slides (barra do
+    navegador, abas, cabeçalho fixo) e descarta os slides que ficam sem texto,
+    incluindo os que nunca tiveram (rosto, transição). Devolve
+    (slides_limpos, linhas_de_ruido, quantos_descartados). As linhas de ruído
+    (até RUIDO_MAX_LISTADAS, as mais frequentes) vão para o cabeçalho do
+    visual.json, para o agente saber o que foi tirado. A confiança do OCR de cada
+    slide continua a da leitura inteira.
+    """
+    com_texto = [s for s in slides if s.texto.strip()]
+    fixas = {}  # chave -> (quantos slides, linha original)
+    if len(com_texto) >= RUIDO_SLIDES_MIN:
+        contagem, original = Counter(), {}
+        for slide in com_texto:
+            for chave in {_chave(l) for l in slide.texto.splitlines()}:
+                if len(chave) >= RUIDO_MIN_CARACTERES:
+                    contagem[chave] += 1
+            for linha in slide.texto.splitlines():
+                original.setdefault(_chave(linha), linha.strip())
+        fixas = {c: (n, original[c]) for c, n in contagem.items() if n / len(com_texto) >= RUIDO_FRACAO_MIN}
+
+    def eh_ruido(linha: str) -> bool:
+        chave = _chave(linha)
+        if len(chave) < RUIDO_MIN_CARACTERES or not fixas:
+            return False
+        return chave in fixas or any(SequenceMatcher(None, chave, f).ratio() >= RUIDO_SIMILARIDADE for f in fixas)
+
+    limpos, descartados = [], 0
+    for slide in slides:
+        linhas = [l for l in slide.texto.splitlines() if l.strip() and not eh_ruido(l)]
+        if linhas:
+            limpos.append(replace(slide, texto="\n".join(linhas)))
+        else:
+            descartados += 1
+    mais_frequentes = sorted(fixas.values(), key=lambda v: -v[0])[:RUIDO_MAX_LISTADAS]
+    return limpos, [linha for _, linha in mais_frequentes], descartados
 
 
 def indicadores(slides, duracao_s: float, largura: int, altura: int) -> dict:

@@ -65,7 +65,9 @@ def gravar(pasta: Path, fonte: dict, resultado) -> Path:
             (pasta / f"transcricao-{falante}.txt").write_text(
                 texto.formatar_canal(canais.get(falante, [])), encoding="utf-8")
     else:
-        destino.write_text(texto.formatar(texto.juntar_em_paragrafos(resultado.segmentos)), encoding="utf-8")
+        # `[mm:ss]` em cada parágrafo: os agentes leem só este arquivo (metade do custo do
+        # JSON) e ainda citam o horário.
+        destino.write_text(texto.formatar_canal(texto.juntar_com_inicio(resultado.segmentos)), encoding="utf-8")
     return destino
 
 
