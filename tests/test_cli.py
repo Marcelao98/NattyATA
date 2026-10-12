@@ -793,6 +793,41 @@ class TestGlossarioNaCli(unittest.TestCase):
             self.assertIn("Não achei o glossário", erro.getvalue())
 
 
+class TestNovosComandosNaCli(unittest.TestCase):
+    def test_cartoes_gera_csv_e_erra_sem_md(self):
+        with tempfile.TemporaryDirectory() as d:
+            with redirect_stderr(io.StringIO()):
+                self.assertEqual(cli.main(["cartoes", d]), 1)
+            (Path(d) / "cartoes-a.md").write_text("## T\nP: a?\nR: b\n", encoding="utf-8")
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(["cartoes", d]), 0)
+            self.assertTrue((Path(d) / "cartoes-a.csv").is_file())
+
+    def test_traduzir_prepara_e_monta(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "transcricao.json").write_text(json.dumps({"segmentos": [{"inicio": 0, "fim": 1, "texto": "oi"}]}))
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(["traduzir", "preparar", d, "--para", "en"]), 0)
+            (Path(d) / "traducao-en.txt").write_text("1|hi\n", encoding="utf-8")
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(["traduzir", "montar", d, "--para", "en"]), 0)
+            self.assertIn("hi", (Path(d) / "legenda.en.srt").read_text(encoding="utf-8"))
+
+    def test_perguntar_grava_trechos_ou_avisa_que_nao_achou(self):
+        with tempfile.TemporaryDirectory() as d:
+            v = Path(d) / "aula"
+            v.mkdir()
+            (v / "transcricao.txt").write_text("[00:05] a margem sobe\n", encoding="utf-8")
+            saida = io.StringIO()
+            with redirect_stdout(saida):
+                self.assertEqual(cli.main(["perguntar", "margem", "--raiz", d]), 0)
+            self.assertTrue((Path(d) / "_consultas" / "margem" / "trechos.md").is_file())
+            saida = io.StringIO()
+            with redirect_stdout(saida):
+                cli.main(["perguntar", "zzzz", "--raiz", d])
+            self.assertIn("Não achei trechos", saida.getvalue())
+
+
 class TestLoteNaCli(unittest.TestCase):
     def test_roda_cada_item_grava_relatorio_e_sai_com_1_se_algum_falhou(self):
         with tempfile.TemporaryDirectory() as d:

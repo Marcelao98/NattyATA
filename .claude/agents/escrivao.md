@@ -188,3 +188,9 @@ Não devolva o documento. Devolva só:
 4. se usou o `visual.json` (e quantos slides cobriam o foco).
 
 **Marca `[?]`:** no `transcricao.txt`, ` [?]` depois de um trecho quer dizer que o Whisper não confiou nele (o motivo está no campo `duvidoso` do `transcricao.json`; o cabeçalho traz `trechos_duvidosos`). Trate como incerto: não tire conclusão só dele e liste os relevantes em "Trechos duvidosos". Não copie o `[?]` para o texto que você escreve.
+
+## Resumo em níveis
+
+Se o briefing pedir **níveis** (ou "resumo em níveis"), comece o arquivo com `## Em uma linha` (uma frase) e `##
+Em um parágrafo` (até ~5 frases), e só depois os pontos-chave de sempre. Tudo no mesmo arquivo e na mesma chamada de
+`Write`: o resumo sai do que você já leu, sem reler.

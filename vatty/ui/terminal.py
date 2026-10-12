@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .runner import ambiente
 
-PERMITIDOS = ("buscar", "legenda", "corrigir", "ata", "cartoes", "niveis")
+PERMITIDOS = ("buscar", "legenda", "corrigir", "ata", "cartoes", "traduzir", "perguntar")
 TEMPO_MAX_S = 180
 SAIDA_MAX = 20000
 
@@ -41,7 +41,7 @@ def montar(linha: str, raiz, python: str = sys.executable) -> list:
         if alvo != raiz and raiz not in alvo.parents:
             raise ComandoInvalido(f"O caminho {p} está fora da pasta de trabalho.")
     argv = [python, "-m", "vatty.cli", *partes]
-    if partes[0] == "buscar" and "--raiz" not in partes:
+    if partes[0] in ("buscar", "perguntar") and "--raiz" not in partes:
         argv += ["--raiz", str(raiz)]
     return argv
 

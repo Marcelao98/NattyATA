@@ -13,6 +13,10 @@ Interface local (`vatty ui`) e os recursos que a alimentam. Tudo roda no computa
   (`[?]`, `trechos_duvidosos`).
 - `vatty lote <lista.txt|playlist>`: transcreve vários, um erro não para os outros, relatório em JSON
   (`fonte.listar_playlist` expande playlist e canal sem abrir cada vídeo).
+- Agentes novos: **Cartas** (flashcards, `vatty cartoes` gera o `.csv` do Anki), **Tradutor** (`vatty traduzir
+  preparar|montar`, confere que nenhum bloco sumiu), **Consulta** (`vatty perguntar` escolhe os trechos do acervo e
+  o agente responde só com eles) e **Comparador**. O Escrivão faz resumo em níveis. Nenhum agente foi
+  executado de verdade ainda: só o código ao redor foi testado.
 - Padrão visual da Vatty em `vatty/ui/static/` (`docs/visual.md`).
 - **Empacotamento corrigido**: `packages = ["vatty"]` deixava de fora subpacotes e os arquivos da tela;
   agora `vatty.ui` e `static/*` vão no wheel (verificado montando o pacote).

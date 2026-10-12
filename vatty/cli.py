@@ -8,7 +8,7 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import aula, ata, audio, diarizar, fonte, glossario, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, srt, visual, vozes
+from . import acervo, aula, ata, audio, cartoes as _cartoes, traducao as _traducao, diarizar, fonte, glossario, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, srt, visual, vozes
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 PREPROCESSAR_ESCOLHAS = ("perguntar", "sim", "nao")
@@ -686,6 +686,57 @@ def _main_lote(argv) -> int:
     return 0 if not relatorio["falhas"] else 1
 
 
+def _main_cartoes(argv) -> int:
+    p = argparse.ArgumentParser(prog="vatty cartoes", description="Converte o cartoes-*.md do agente em .csv para o Anki.")
+    p.add_argument("pasta", type=Path)
+    p.add_argument("--arquivo", default=None, help="qual cartoes-*.md (se houver mais de um)")
+    args = p.parse_args(argv)
+    try:
+        destino = _cartoes.gerar(args.pasta, args.arquivo)
+    except _cartoes.CartoesErro as e:
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    print(f"Cartões prontos: {destino}")
+    return 0
+
+
+def _main_traduzir(argv) -> int:
+    p = argparse.ArgumentParser(prog="vatty traduzir", description="Tradução de legenda em duas etapas: 'preparar' escreve a "
+                                "entrada do agente tradutor; 'montar' junta a tradução dele aos horários.")
+    p.add_argument("etapa", choices=("preparar", "montar"))
+    p.add_argument("pasta", type=Path)
+    p.add_argument("--para", required=True, metavar="IDIOMA", help="código do idioma de destino (en, es, fr, pt-BR...)")
+    p.add_argument("--formato", nargs="+", choices=srt.FORMATOS, default=["srt"], help="só em 'montar'")
+    args = p.parse_args(argv)
+    try:
+        if args.etapa == "preparar":
+            destino, n = _traducao.preparar(args.pasta, args.para)
+            print(f"{n} bloco(s) em {destino}. Agora peça ao agente tradutor para traduzir.")
+        else:
+            for arquivo in _traducao.montar(args.pasta, args.para, args.formato):
+                print(f"Legenda pronta: {arquivo}")
+    except _traducao.TraducaoErro as e:
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _main_perguntar(argv) -> int:
+    p = argparse.ArgumentParser(prog="vatty perguntar", description="Escolhe, em todas as transcrições, os trechos mais ligados "
+                                "a uma pergunta e grava o arquivo que o agente 'consulta' lê para responder.")
+    p.add_argument("pergunta")
+    p.add_argument("--raiz", type=Path, default=Path("transcricoes"))
+    p.add_argument("--n", type=int, default=8, help="quantos trechos (padrão: 8)")
+    args = p.parse_args(argv)
+    trechos = acervo.selecionar(args.pergunta, args.raiz, args.n)
+    if not trechos:
+        print("Não achei trechos ligados a essa pergunta. Tente outras palavras.")
+        return 0
+    destino = acervo.gravar(args.raiz, args.pergunta, trechos)
+    print(f"{len(trechos)} trecho(s) em {destino}. Agora peça ao agente consulta para responder.")
+    return 0
+
+
 def _main_legenda(argv) -> int:
     p = argparse.ArgumentParser(prog="vatty legenda", description="Gera legenda .srt/.vtt de uma pasta já transcrita.")
     p.add_argument("pasta")
@@ -714,6 +765,12 @@ def main(argv=None) -> int:
         return _main_ata(argv[1:])
     if argv and argv[0] == "perfil":
         return _main_perfil(argv[1:])
+    if argv and argv[0] == "cartoes":
+        return _main_cartoes(argv[1:])
+    if argv and argv[0] == "traduzir":
+        return _main_traduzir(argv[1:])
+    if argv and argv[0] == "perguntar":
+        return _main_perguntar(argv[1:])
     if argv and argv[0] == "lote":
         return _main_lote(argv[1:])
     if argv and argv[0] == "ui":
