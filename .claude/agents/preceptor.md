@@ -86,7 +86,9 @@ Não leia nem escreva nada fora da pasta do vídeo.
 ## Fidelidade e limites
 
 - O que vem do vídeo leva o horário: `[m:ss](<url>&t=<segundos>s)` (se a url
-  já tiver `?`, use `&t=`; senão, `?t=`). Para arquivo local, só `[m:ss]`.
+  já tiver `?`, use `&t=`; senão, `?t=`). Para arquivo local e para vídeo de
+  outra plataforma (`tipo: "url"`, ex.: TikTok), só `[m:ss]`: o `&t=` vale só
+  no YouTube.
 - O que é acréscimo seu (definição de fora, exemplo inventado, analogia,
   contexto) vem marcado com **[acréscimo]** no começo da frase ou do bloco.
   Exemplo e analogia que o próprio autor usou não são acréscimo: dê o horário.

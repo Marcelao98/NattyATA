@@ -159,6 +159,19 @@ mais de tempo, mas evita trechos curtos com horário de silêncio.
 - **Consentimento:** gravar uma conversa sem avisar os outros participantes
   pode ser ilegal onde você mora. A Vatty lembra disso ao começar.
 
+### TikTok e outras plataformas
+
+A URL vai direto, como no YouTube. O TikTok quase nunca tem legenda, então a Vatty baixa o áudio e usa o Whisper:
+
+```bash
+vatty "https://www.tiktok.com/@alguem/video/123" --texto whisper
+```
+
+O TikTok exige que o downloader imite um navegador (`curl-cffi`, já nas dependências: rode `pip install -e .` de novo
+se atualizou). A página do vídeo é lida uma vez só; o TikTok recusava a segunda leitura. Instagram costuma pedir login
+(cookies) e o Kwai não tem suporte no yt-dlp: nesses casos baixe o vídeo e passe o arquivo. Se o site mudar e o
+download quebrar, atualize: `pip install -U "yt-dlp[default,curl-cffi]"`. O `fonte.json` registra `tipo: "url"` e a `plataforma`.
+
 ### YouTube: legenda primeiro
 
 Se o vídeo tem legenda no idioma pedido (a manual do autor antes da
@@ -235,6 +248,21 @@ O resultado: `falantes.json` na pasta (turnos e resumo) e `pessoa` em cada segme
 Limites conhecidos: fala sobreposta erra; um trecho do Whisper vai inteiro para quem mais falou nele; o
 modelo de voz foi treinado em chinês e inglês e os limiares foram medidos só em voz sintética em português:
 teste com reunião real e me conte.
+
+### Ata de reunião
+
+Depois de transcrever uma reunião (de preferência com `--falantes`), peça a ata ao **Secretário** na conversa
+do Claude Code ("faz a ata dessa reunião"). Ele escreve só o essencial (decisões, tarefas com responsável e
+prazo, pendências, dúvidas da transcrição) em `ata-<assunto>.md`. Depois o código monta o documento:
+
+```bash
+pip install -e ".[ata]"
+vatty ata transcricoes/reuniao --nomes "Pessoa 1=Ana" "Pessoa 2=Beto" --formato docx pdf
+```
+
+O comando é `vatty ata <pasta>`. Título, data, duração e participantes saem dos arquivos da pasta, sem gastar
+tokens; `--nomes` troca "Pessoa N" pelo nome certo só no documento final. O Secretário nunca presume o nome de
+ninguém. Confira sempre a ata: decisão e tarefa dependem de a transcrição e a separação de falantes estarem certas.
 
 ### Lista de termos (`--termos`)
 

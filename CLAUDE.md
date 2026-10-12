@@ -45,7 +45,7 @@ duas metades compartilham:
 
 | Arquivo | Quem escreve | Conteúdo |
 |---|---|---|
-| `fonte.json` | Fonte | `tipo` (`youtube`, `arquivo` ou `gravacao`) e, no YouTube: url, título, canal, duração, data, id, capítulos do autor, descrição |
+| `fonte.json` | Fonte | `tipo` (`youtube`, `url`, `arquivo` ou `gravacao`) e, em vídeo de URL: url, título, canal, duração, data, id, capítulos do autor, descrição. `tipo: "url"` é vídeo de outra plataforma (TikTok etc.) e traz `plataforma`; sem capítulos nem legenda, em geral |
 | `transcricao.json` | Legenda ou Motor | metadados (`origem`, modelo, idioma; em gravação com duas faixas, também `faixas`) + segmentos `{inicio, fim, texto}`, um por linha; em gravação com duas faixas, também `falante` |
 | `transcricao.txt` | Texto | parágrafos separados por linha em branco, cada um começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h): é o que os agentes leem. Em gravação, `Eu:` / `Outros:` depois do horário; com duas faixas é a **linha do tempo** dos dois |
 | `transcricao-eu.txt`, `transcricao-outros.txt` | Texto | só em gravação com duas faixas: um canal só, cada parágrafo começando com `[mm:ss]` (`[h:mm:ss]` a partir de 1 h) |
@@ -54,6 +54,8 @@ duas metades compartilham:
 | `frames/` | Visual | um JPG por slide, citado no `visual.json` |
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
 | `didatico-<tema>.md` | Preceptor | um arquivo por pedido |
+| `ata-<assunto>.md` | Secretário | só o conteúdo da ata (seções `## Resumo/Decisões/Tarefas/Pendências/Dúvidas da transcrição`, itens `- ...`; tarefas como `Responsável \| tarefa \| prazo \| [mm:ss]`) |
+| `ata-<assunto>.docx`, `.pdf` | Ata (código) | `vatty ata <pasta>`: cabeçalho (data, duração, participantes) vindo de `fonte.json`/`falantes.json`, mais o `.md` do agente, com `Pessoa N` trocada pelos nomes dados |
 
 `origem` diz de onde veio o texto: `legenda-manual`, `legenda-automatica` ou
 `whisper`. Os agentes leem esse campo para saber o quanto confiar em nomes e
@@ -77,7 +79,7 @@ mídia). Os agentes citam trechos pelo horário (`[12:34]`), que vem do
 
 ### Legenda primeiro, Whisper se o usuário quiser
 
-Para URL do YouTube, a primeira coisa é olhar se o vídeo tem legenda no idioma
+Para URL de vídeo (YouTube; no TikTok quase nunca há legenda, então vai direto ao Whisper), a primeira coisa é olhar se o vídeo tem legenda no idioma
 pedido (`--lang`). Baixar só a legenda leva segundos; transcrever com Whisper
 leva minutos. Então:
 
@@ -115,8 +117,13 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 
 ### Camada de código (`vatty/`)
 
-- `fonte.py`: URL do YouTube → `fonte.json`, legendas disponíveis, download
-  da legenda ou do áudio via `yt-dlp`. Arquivo local passa direto.
+- `fonte.py`: URL de vídeo (YouTube, TikTok, o que o `yt-dlp` suportar) → `fonte.json`, legendas
+  disponíveis, download da legenda, do áudio ou da imagem. `Sessao` = uma URL, **uma instância do
+  yt-dlp, uma leitura da página**: os downloads partem do resultado bruto do extrator
+  (`process=False`) e rodam na mesma instância (`process_ie_result`), porque o TikTok recusa a
+  segunda leitura ("Unable to extract universal data for rehydration"). Partir do `info` já
+  processado não serve: ele guarda o formato escolhido na leitura. TikTok também exige o
+  `curl-cffi` (imitar navegador), que é dependência. Arquivo local passa direto.
 - `legenda.py`: legenda (.vtt) → segmentos; escolha manual × automática;
   amostras e indicadores para o usuário julgar. Lógica pura, sem perguntar
   nada (quem pergunta é a CLI).
@@ -154,12 +161,21 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 - `perfis.py`: perfis de voz de quem consentiu (só o vetor, nunca o áudio; criar sem consentimento é
   recusado; `apagar`). Fora do repositório (`~/.vatty/perfis`).
 - `preprocessar.py`: etapa opcional antes do Whisper (`--preprocessar`). Mede o áudio (nível, SNR,
-  ronco, estouro), pergunta se recomendado e aplica `highpass` x2 → `arnndn` → `speechnorm` na
+  ronco, estouro), pergunta se recomendado e aplica `highpass` x2 → `speechnorm` → `arnndn` na
   decodificação. Modelo `.rnnn` baixado para o cache (nunca no repositório); sem ele, `afftdn`.
-  Registra `preprocessamento` no cabeçalho do `transcricao.json`.
+  Registra `preprocessamento` no cabeçalho do `transcricao.json`. O `arnndn` fica por último:
+  no ffmpeg 9.0.2, filtro depois dele trava ou dá segfault. **Não usar em sussurro nem com
+  música de fundo:** no teste real (12/10/2026, conversa sussurrada com música) o Whisper caiu
+  de ~190 para ~70 palavras com ele, e para 2 palavras somado a VAD tolerante. Sem ele e com o
+  VAD padrão foi o melhor resultado. Ainda falta testar no caso para o qual foi feito (voz baixa
+  de WhatsApp, ronco).
 - `motor.py`: array → segmentos (faster-whisper `large-v3-turbo`, CPU, int8).
 - `repeticao.py`: sinais de loop do Whisper (com `hotwords`); o motor refaz
   esses trechos sem os termos.
+- `ata.py`: o `ata-*.md` do Secretário → `.docx` (python-docx) e `.pdf` (reportlab), extra opcional
+  `[ata]`. Lê um subconjunto fixo de Markdown, monta o cabeçalho sem LLM, troca `Pessoa N` por nomes
+  (`--nomes "Pessoa 1=Ana"`) e faz a tabela de tarefas. Quem escreve o conteúdo é o agente; quem
+  formata é o código (é aí que se economizam tokens).
 - `texto.py`: segmentos → parágrafos. Em gravação com duas faixas, um canal
   por vez (`por_canal`), `formatar_canal` (`[mm:ss]` por parágrafo) e
   `linha_do_tempo`.
@@ -187,7 +203,7 @@ parar para perguntar. Por isso a conversa principal:
 4. repassa ao usuário o resumo curto que o agente devolveu e o caminho do
    arquivo. O documento em si fica na pasta, não na conversa.
 
-**Custo (tokens).** Os dois agentes rodam no **Sonnet** (`model: sonnet` no
+**Custo (tokens).** Os três agentes rodam no **Sonnet** (`model: sonnet` no
 arquivo de cada um): extrair e reorganizar texto não pede o modelo mais caro. O
 que mais custa é o que eles escrevem, então a **extensão** limita o tamanho
 (`curto`: até 15 pontos; `medio`, o padrão: até 5 por capítulo; `completo`: sem
@@ -217,7 +233,14 @@ Pedir de novo com o mesmo foco sobrescreve; foco diferente gera outro arquivo.
   Se já existir um `pontos-chave-*.md` na pasta, usa como mapa; se não,
   lê a transcrição direto. Nunca exige que o Escrivão rode antes.
 
-Os dois papéis são separados de propósito: um é fiel ao vídeo, o outro é
+- **Secretário** (`secretario.md`): ata de reunião. Escreve só decisões, tarefas (responsável,
+  prazo), pendências e dúvidas, cada uma com horário, em Markdown de formato fixo e o mais curto
+  possível: título, data, duração, participantes e o arquivo `.docx`/`.pdf` são do código
+  (`vatty ata`). Nunca presume o nome de uma `Pessoa N`; não decide o que a reunião não decidiu.
+  A conversa principal pergunta a extensão e quem é cada `Pessoa N` (mostrando quanto cada uma
+  falou), chama o agente e depois roda `vatty ata <pasta> --nomes ... --formato docx`.
+
+Os papéis são separados de propósito: um é fiel ao vídeo, o outro é
 livre para ensinar. Misturar os dois num agente só faz o resumo inventar e a
 explicação ficar presa ao texto.
 
@@ -269,6 +292,8 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
    confirmar a captura num Windows real)**
 6. Visual, perfil `aula`: slides + OCR (Tesseract) → `visual.json`.
    **(feito, falta confirmar com vídeo real)** Falta o perfil `corte`.
+7. Separação de falantes (`--falantes`, perfis de voz). **(feito, falta confirmar com voz real)**
+8. Secretário (ata em `.docx`/`.pdf`). **(feito, falta confirmar numa reunião real)**
 
 ## Comandos
 
@@ -277,4 +302,5 @@ python -m unittest discover -s tests
 vatty arquivo.opus
 vatty gravar --mic --transcrever
 vatty "url" --visual auto
+vatty ata transcricoes/reuniao --nomes "Pessoa 1=Ana" --formato docx pdf
 ```
