@@ -40,3 +40,7 @@ um número ou um "peraí, isso eu não falei".
 | Escrivão | pontos-chave fiéis, com horário | `.claude/agents/escrivao.md` |
 | Preceptor | explicação didática | `.claude/agents/preceptor.md` |
 | Secretário | ata de reunião | `.claude/agents/secretario.md` |
+| Cartas | flashcards de estudo | `.claude/agents/cartas.md` |
+| Tradutor | legenda traduzida | `.claude/agents/tradutor.md` |
+| Consulta | responde perguntas sobre o acervo | `.claude/agents/consulta.md` |
+| Comparador | compara dois vídeos | `.claude/agents/comparador.md` |

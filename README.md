@@ -249,6 +249,18 @@ Limites conhecidos: fala sobreposta erra; um trecho do Whisper vai inteiro para 
 modelo de voz foi treinado em chinês e inglês e os limiares foram medidos só em voz sintética em português:
 teste com reunião real e me conte.
 
+### Estudar, perguntar e traduzir
+
+```bash
+vatty cartoes transcricoes/aula                       # cartoes-*.md (agente Cartas) -> .csv do Anki
+vatty perguntar "o que disseram sobre margem?"        # separa os trechos; o agente Consulta responde
+vatty traduzir preparar transcricoes/aula --para en   # o agente Tradutor traduz as linhas
+vatty traduzir montar transcricoes/aula --para en     # legenda.en.srt com os horários originais
+```
+
+O código escolhe e formata; o agente só escreve o que exige julgamento. Para os agentes (Cartas, Tradutor,
+Consulta, Comparador) peça pela conversa do Claude Code, que cuida do briefing.
+
 ### Lote e playlist: `vatty lote`
 
 ```bash

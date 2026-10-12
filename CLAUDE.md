@@ -60,6 +60,10 @@ duas metades compartilham:
 | `pontos-chave-<foco>.md` | Escrivão | um arquivo por foco pedido |
 | `didatico-<tema>.md` | Preceptor | um arquivo por pedido |
 | `ata-<assunto>.md` | Secretário | só o conteúdo da ata (seções `## Resumo/Decisões/Tarefas/Pendências/Dúvidas da transcrição`, itens `- ...`; tarefas como `Responsável \| tarefa \| prazo \| [mm:ss]`) |
+| `cartoes-<tema>.md`, `.csv` | Cartas (agente) + código | `.md`: `## Tópico`, `P:`, `R:`, `[mm:ss]`; `vatty cartoes <pasta>` gera o `.csv` do Anki |
+| `traducao-<lang>-entrada.txt`, `traducao-<lang>.txt`, `legenda.<lang>.srt` | código, Tradutor, código | `N\|texto`; `vatty traduzir preparar/montar`; o código recusa tradução com bloco faltando |
+| `_consultas/<pergunta>/trechos.md`, `resposta.md` | código, Consulta | `vatty perguntar` escolhe os trechos; o agente responde só com eles |
+| `_comparacoes/comparacao-<a>-<b>.md` | Comparador | só o agente, lendo duas pastas |
 | `ata-<assunto>.docx`, `.pdf` | Ata (código) | `vatty ata <pasta>`: cabeçalho (data, duração, participantes) vindo de `fonte.json`/`falantes.json`, mais o `.md` do agente, com `Pessoa N` trocada pelos nomes dados |
 
 `origem` diz de onde veio o texto: `legenda-manual`, `legenda-automatica` ou
@@ -142,6 +146,9 @@ vatty arquivo.opus
 vatty gravar --mic --transcrever
 vatty "url" --visual auto
 vatty ui
+vatty perguntar "o que disseram sobre margem?"
+vatty cartoes transcricoes/aula
+vatty traduzir preparar transcricoes/aula --para en
 vatty lote lista.txt
 vatty buscar "termo"
 vatty corrigir transcricoes/aula --glossario glossario.txt

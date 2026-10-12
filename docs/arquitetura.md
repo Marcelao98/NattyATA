@@ -211,3 +211,9 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
   A interface não chama LLM: só gera o texto do prompt.
 - `lote.py`: `vatty lote`. Lê a lista (ou expande a playlist), roda cada item como subprocesso `vatty`, não para no
   erro e devolve o relatório. `fonte.listar_playlist` usa `extract_flat`.
+- **Cartas** (`cartas.md`): flashcards em formato fixo; `cartoes.py` converte em `.csv` do Anki.
+  **Tradutor** (`tradutor.md`): traduz só as linhas `N|texto`; `traducao.py` prepara a entrada e monta o `.srt`
+  com os horários originais, recusando tradução incompleta. **Consulta** (`consulta.md`): responde só com os
+  trechos que `acervo.py` escolheu (pontuação por termos, sem embeddings). **Comparador** (`comparador.md`):
+  compara duas pastas. O **Escrivão** também faz resumo em níveis quando o briefing pedir.
+  Agente novo só aparece depois de reiniciar a sessão do Claude Code.
