@@ -1,0 +1,80 @@
+/* Padrão visual da Vatty: "oficina de som". Remendos, costura e fita cassete.
+   Sem fonte nem recurso externo: o app é local e funciona offline. */
+:root {
+  /* Cores */
+  --oficina:  #211c33;   /* fundo: noite de oficina */
+  --bancada:  #2d2744;   /* painéis */
+  --remendo:  #3a3358;   /* painel elevado / hover */
+  --papel:    #f2eef7;   /* texto */
+  --papel-2:  #b9b0cf;   /* texto secundário */
+  --ouvido:   #3fd6c3;   /* ação principal, progresso, "ouvindo" */
+  --costura:  #ffb347;   /* fio: bordas tracejadas, destaque, [?] */
+  --fone:     #ff5c9e;   /* atenção: erro, gravação */
+  --fio-vazio:#4a4268;   /* costura ainda não feita */
+  --sobre-ouvido: #10241f; /* texto sobre --ouvido */
+
+  /* Tipo: uma família do sistema; horário em mono */
+  --fonte: "Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Escala 1.2 (base 16px) */
+  --t-1: 0.833rem; --t0: 1rem; --t1: 1.2rem; --t2: 1.44rem; --t3: 1.728rem; --t4: 2.488rem;
+
+  /* Forma */
+  --raio: 14px;          /* painéis */
+  --raio-p: 8px;         /* botões e chips */
+  --espaco: 8px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-tema="escuro"]) {
+    --oficina:#f6f2fb; --bancada:#ffffff; --remendo:#ebe5f5;
+    --papel:#241e38; --papel-2:#5d5478; --fio-vazio:#cfc6e3;
+    --ouvido:#0e8f80; --costura:#c77700; --fone:#d6336c; --sobre-ouvido:#ffffff;
+  }
+}
+:root[data-tema="claro"] {
+  --oficina:#f6f2fb; --bancada:#ffffff; --remendo:#ebe5f5;
+  --papel:#241e38; --papel-2:#5d5478; --fio-vazio:#cfc6e3;
+  --ouvido:#0e8f80; --costura:#c77700; --fone:#d6336c; --sobre-ouvido:#ffffff;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--oficina); color: var(--papel); font: 400 var(--t0)/1.55 var(--fonte); }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 calc(var(--espaco) * 1.5); letter-spacing: -0.01em; }
+h1 { font-size: var(--t4); font-weight: 800; } h2 { font-size: var(--t2); font-weight: 700; } h3 { font-size: var(--t1); font-weight: 650; }
+p { max-width: 68ch; }
+a { color: var(--ouvido); }
+:focus-visible { outline: 3px solid var(--costura); outline-offset: 2px; }
+
+/* Painel: a borda tracejada é a costura que prende o remendo */
+.remendo { background: var(--bancada); border: 2px dashed var(--fio-vazio); border-radius: var(--raio); padding: calc(var(--espaco) * 2.5); }
+.remendo.ativo { border-color: var(--costura); }
+
+/* Botões */
+.btn { font: 650 var(--t0)/1 var(--fonte); padding: 12px 18px; border-radius: var(--raio-p); border: 2px solid transparent; cursor: pointer; }
+.btn-principal { background: var(--ouvido); color: var(--sobre-ouvido); }
+.btn-principal:hover { filter: brightness(1.08); }
+.btn-calmo { background: var(--remendo); color: var(--papel); border-color: var(--fio-vazio); }
+.btn-calmo:hover { border-color: var(--ouvido); }
+.btn-perigo { background: transparent; color: var(--fone); border-color: var(--fone); }
+
+/* Horário clicável e trecho duvidoso */
+.horario { font: 500 var(--t-1)/1 var(--mono); color: var(--ouvido); background: var(--remendo); padding: 3px 7px; border-radius: 6px; text-decoration: none; }
+.duvida { background: color-mix(in srgb, var(--costura) 22%, transparent); border-bottom: 2px dashed var(--costura); border-radius: 3px; }
+
+/* Estados da fila */
+.estado { font: 650 var(--t-1)/1 var(--fonte); padding: 5px 10px; border-radius: 999px; border: 2px solid currentColor; display: inline-block; }
+.estado-fila { color: var(--papel-2); } .estado-rodando { color: var(--ouvido); }
+.estado-pronto { color: var(--costura); } .estado-erro { color: var(--fone); }
+
+/* Barra de progresso: costura sendo feita, ponto a ponto */
+.costura { --p: 0%; position: relative; height: 10px; border-radius: 5px; overflow: hidden;
+  background: repeating-linear-gradient(90deg, var(--fio-vazio) 0 12px, transparent 12px 18px); }
+.costura > i { position: absolute; inset: 0 auto 0 0; width: var(--p); transition: width .4s ease;
+  background: repeating-linear-gradient(90deg, var(--ouvido) 0 12px, transparent 12px 18px); }
+@media (prefers-reduced-motion: reduce) { .costura > i { transition: none; } }
+
+/* Terminal: painel de log, sempre escuro */
+.terminal { background: #120f1d; color: #d9d2ea; font: 400 var(--t-1)/1.6 var(--mono); border-radius: var(--raio-p); padding: 14px; overflow: auto; max-height: 260px; }
+.terminal .ok { color: var(--ouvido); } .terminal .aviso { color: var(--costura); } .terminal .erro { color: var(--fone); }
