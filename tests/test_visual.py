@@ -2,8 +2,8 @@ import unittest
 
 import numpy as np
 
-from natty_ata import visual
-from natty_ata.visual import Slide, detectar_trocas, indicadores, juntar_parecidos, sugerir_perfil
+from vatty import visual
+from vatty.visual import Slide, detectar_trocas, indicadores, juntar_parecidos, sugerir_perfil
 
 
 def tela(valor, altura=180, largura=320):

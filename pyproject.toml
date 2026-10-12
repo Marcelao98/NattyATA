@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "natty-ata"
-version = "0.9.0"
-description = "Transcreve vídeos do YouTube e arquivos de áudio (legenda ou faster-whisper). Parte do ecossistema da Natty."
+name = "vatty"
+version = "0.10.0"
+description = "Vatty (Video Audio To Almost Everything): transforma vídeos, áudios e gravações em texto (legenda ou faster-whisper) e deixa agentes do Claude Code fazerem o resto. Filha do ouvido da Natty."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.14"
@@ -22,7 +22,9 @@ dependencies = [
 gravacao = ["pyaudiowpatch; sys_platform == 'win32'"]
 
 [project.scripts]
-ata = "natty_ata.cli:main"
+vatty = "vatty.cli:main"
+# apelido antigo, para não quebrar o que já estava em uso
+ata = "vatty.cli:main"
 
 [tool.setuptools]
-packages = ["natty_ata"]
+packages = ["vatty"]

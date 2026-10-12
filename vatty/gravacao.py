@@ -224,7 +224,7 @@ def juntar_faixas(resultados: dict):
 
 # --- Captura real (Windows) --------------------------------------------------
 # Única parte que fala com a placa de som. Não tem teste automático: é
-# verificada rodando `ata gravar --duracao 5` num Windows.
+# verificada rodando `vatty gravar --duracao 5` num Windows.
 
 class _EntradaWasapi:
     """Um dispositivo WASAPI lido por callback; o PortAudio cria a própria thread."""

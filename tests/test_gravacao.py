@@ -5,8 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-from natty_ata import gravacao
-from natty_ata.motor import Resultado, Segmento
+from vatty import gravacao
+from vatty.motor import Resultado, Segmento
 
 
 class Relogio:

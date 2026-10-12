@@ -9,8 +9,8 @@ from unittest import mock
 
 import numpy as np
 
-from natty_ata import aula, cli, fonte, gravacao, ocr, quadros, visual
-from natty_ata.motor import Resultado, Segmento
+from vatty import aula, cli, fonte, gravacao, ocr, quadros, visual
+from vatty.motor import Resultado, Segmento
 
 VIDEO = fonte.Video(
     id="abc", url="https://www.youtube.com/watch?v=abc", titulo="Aula", canal="C",
@@ -160,7 +160,7 @@ class TestGravacaoCli(unittest.TestCase):
         (pasta_audio,) = self.pastas_de_audio()
         self.assertTrue((pasta_audio / "sistema.wav").is_file())
         self.assertFalse((pasta_audio / "microfone.wav").exists())
-        self.assertIn("ata " + str(pasta_audio), out)
+        self.assertIn("vatty " + str(pasta_audio), out)
         self.assertIn("avisar", out)  # lembrete de consentimento
         self.assertFalse(self.saida.exists())
 

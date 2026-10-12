@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from natty_ata import pasta
-from natty_ata.motor import Resultado, Segmento
+from vatty import pasta
+from vatty.motor import Resultado, Segmento
 
 
 class TestPasta(unittest.TestCase):

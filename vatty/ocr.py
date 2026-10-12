@@ -14,7 +14,7 @@ from pathlib import Path
 
 TIMEOUT_S = 60
 
-# Idioma da `ata` (--lang) -> código do Tesseract. O inglês entra sempre: slide
+# Idioma da Vatty (--lang) -> código do Tesseract. O inglês entra sempre: slide
 # em português vive citando termo em inglês.
 IDIOMAS = {"pt": "por", "en": "eng", "es": "spa", "fr": "fra", "de": "deu", "it": "ita"}
 

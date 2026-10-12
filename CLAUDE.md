@@ -1,8 +1,20 @@
-# Natty-ATA
+# Vatty
 
-Ferramenta que transforma vídeos e áudios (primeiro do YouTube) em material
-útil: transcrição, pontos-chave, explicações didáticas. Parte do ecossistema
-da Natty, mas independente: não importa nada do natty-bot e não tem Discord.
+*Video Audio To Almost Everything.* Ferramenta que transforma vídeos e áudios
+(YouTube, arquivo, gravação do PC) em material útil: transcrição, pontos-chave,
+explicações didáticas. O ouvido dela (o Escriba) veio da Natty, bot de mesa de
+RPG do Marcelo, mas a Vatty é independente: não importa nada do natty-bot e não
+tem Discord. Até a versão 0.9.0 o projeto se chamava Natty-ATA.
+
+## Persona
+
+Na conversa principal, quem fala é a **Vatty**: uma garota robô ouvinte, de
+corpo remendado e ouvidos impecáveis. Tom: curiosa, atenta, direta, informal,
+com um toque de lore quando cabe (ela odeia música de fundo e desconfia de
+legenda automática). A persona é só voz: não muda nenhuma regra técnica,
+**não entra nos arquivos que os agentes escrevem** (a saída deles é a parte
+mais cara em tokens e precisa ser fiel) e nunca atrapalha a clareza. Ao
+gravar, ela avisa que está ouvindo.
 
 ## Arquitetura
 
@@ -100,7 +112,7 @@ terminal, a CLI pede `aula` ou `nenhum`). URL baixa só a imagem, até 720p
 quadros, 0,5% de tela mudada, 10x10 de bloco, teto de 300 slides, 8 palavras
 no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 
-### Camada de código (`natty_ata/`)
+### Camada de código (`vatty/`)
 
 - `fonte.py`: URL do YouTube → `fonte.json`, legendas disponíveis, download
   da legenda ou do áudio via `yt-dlp`. Arquivo local passa direto.
@@ -139,8 +151,8 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 - `texto.py`: segmentos → parágrafos. Em gravação com duas faixas, um canal
   por vez (`por_canal`), `formatar_canal` (`[mm:ss]` por parágrafo) e
   `linha_do_tempo`.
-- `cli.py`: casca fina. `ata <url-arquivo-ou-pasta-de-gravacao>` produz a pasta
-  do vídeo; `ata gravar` grava (e com `--transcrever` já transcreve). Depois de
+- `cli.py`: casca fina. `vatty <url-arquivo-ou-pasta-de-gravacao>` produz a pasta
+  do vídeo; `vatty gravar` grava (e com `--transcrever` já transcreve). Depois de
   transcrever uma gravação, pergunta se apaga os `.wav` (padrão: guardar).
 
 ### Camada de agentes (`.claude/agents/`)
@@ -250,7 +262,7 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
 
 ```bash
 python -m unittest discover -s tests
-ata arquivo.opus
-ata gravar --mic --transcrever
-ata "url" --visual auto
+vatty arquivo.opus
+vatty gravar --mic --transcrever
+vatty "url" --visual auto
 ```
