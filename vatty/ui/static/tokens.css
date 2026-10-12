@@ -1,17 +1,18 @@
-/* Padrão visual da Vatty: "oficina de som". Remendos, costura e fita cassete.
+/* Padrão visual da Vatty: "oficina de som". Fundo escuro, hologramas, remendos, costura e fita cassete.
    Sem fonte nem recurso externo: o app é local e funciona offline. */
 :root {
-  /* Cores */
-  --oficina:  #211c33;   /* fundo: noite de oficina */
-  --bancada:  #2d2744;   /* painéis */
-  --remendo:  #3a3358;   /* painel elevado / hover */
-  --papel:    #f2eef7;   /* texto */
-  --papel-2:  #b9b0cf;   /* texto secundário */
-  --ouvido:   #3fd6c3;   /* ação principal, progresso, "ouvindo" */
-  --costura:  #ffb347;   /* fio: bordas tracejadas, destaque, [?] */
-  --fone:     #ff5c9e;   /* atenção: erro, gravação */
-  --fio-vazio:#4a4268;   /* costura ainda não feita */
-  --sobre-ouvido: #10241f; /* texto sobre --ouvido */
+  /* Cores: tiradas da arte da Vatty (fundo escuro, hologramas ciano e âmbar, cabelo rosa, couro) */
+  --oficina:  #090b12;   /* fundo: o escuro atrás dela */
+  --bancada:  #121723;   /* painéis */
+  --remendo:  #1c2335;   /* painel elevado / hover */
+  --papel:    #e9f1f7;   /* texto */
+  --papel-2:  #9fb0c4;   /* texto secundário */
+  --ouvido:   #2fd4f2;   /* ciano holograma: ação, progresso, "ouvindo" */
+  --costura:  #ff9a3d;   /* âmbar: fio, destaque, [?] */
+  --fone:     #ff7eb6;   /* rosa do cabelo: atenção, erro, gravando */
+  --couro:    #8a5a35;   /* avental: detalhes, selos */
+  --fio-vazio:#2c3650;   /* linha ainda não feita */
+  --sobre-ouvido: #04202a; /* texto sobre --ouvido */
 
   /* Tipo: uma família do sistema; horário em mono */
   --fonte: "Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
@@ -28,15 +29,15 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-tema="escuro"]) {
-    --oficina:#f6f2fb; --bancada:#ffffff; --remendo:#ebe5f5;
-    --papel:#241e38; --papel-2:#5d5478; --fio-vazio:#cfc6e3;
-    --ouvido:#0e8f80; --costura:#c77700; --fone:#d6336c; --sobre-ouvido:#ffffff;
+    --oficina:#f1f5f9; --bancada:#ffffff; --remendo:#e4ebf3;
+    --papel:#0f1a2b; --papel-2:#506078; --fio-vazio:#c3cfdf;
+    --ouvido:#0a7f99; --costura:#b85c00; --fone:#c2306f; --couro:#7a4a28; --sobre-ouvido:#ffffff;
   }
 }
 :root[data-tema="claro"] {
-  --oficina:#f6f2fb; --bancada:#ffffff; --remendo:#ebe5f5;
-  --papel:#241e38; --papel-2:#5d5478; --fio-vazio:#cfc6e3;
-  --ouvido:#0e8f80; --costura:#c77700; --fone:#d6336c; --sobre-ouvido:#ffffff;
+  --oficina:#f1f5f9; --bancada:#ffffff; --remendo:#e4ebf3;
+  --papel:#0f1a2b; --papel-2:#506078; --fio-vazio:#c3cfdf;
+  --ouvido:#0a7f99; --costura:#b85c00; --fone:#c2306f; --couro:#7a4a28; --sobre-ouvido:#ffffff;
 }
 
 * { box-sizing: border-box; }
@@ -77,4 +78,17 @@ a { color: var(--ouvido); }
 
 /* Terminal: painel de log, sempre escuro */
 .terminal { background: #120f1d; color: #d9d2ea; font: 400 var(--t-1)/1.6 var(--mono); border-radius: var(--raio-p); padding: 14px; overflow: auto; max-height: 260px; }
-.terminal .ok { color: var(--ouvido); } .terminal .aviso { color: var(--costura); } .terminal .erro { color: var(--fone); }
+.terminal .ok { color: #2fd4f2; } .terminal .aviso { color: #ff9a3d; } .terminal .erro { color: #ff7eb6; }
+
+/* Holograma: o cartão de transcrição que flutua ao redor da Vatty (leitor, resultados da busca) */
+.holo { position: relative; background: color-mix(in srgb, var(--ouvido) 7%, var(--bancada)); border: 1px solid var(--ouvido);
+  border-radius: 4px; padding: 14px 16px; box-shadow: 0 0 18px color-mix(in srgb, var(--ouvido) 25%, transparent); }
+.holo.ambar { border-color: var(--costura); background: color-mix(in srgb, var(--costura) 7%, var(--bancada));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--costura) 25%, transparent); }
+.holo .horario { background: transparent; padding: 0; margin-right: 8px; }
+/* Onda de áudio como linha decorativa de um cartão */
+.onda { height: 22px; margin-top: 10px; opacity: 1;
+  background: var(--ouvido);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+  clip-path: polygon(0% 50%,7% 20%,13% 70%,20% 35%,27% 90%,33% 10%,40% 60%,47% 25%,53% 80%,60% 15%,67% 65%,73% 30%,80% 85%,87% 40%,93% 60%,100% 50%,100% 64%,93% 74%,87% 54%,80% 99%,73% 44%,67% 79%,60% 29%,53% 94%,47% 39%,40% 74%,33% 24%,27% 100%,20% 49%,13% 84%,7% 34%,0% 64%); }
+.avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid var(--fone); }

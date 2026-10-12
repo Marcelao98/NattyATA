@@ -3,8 +3,8 @@
 <title>Vatty: guia visual</title><link rel="stylesheet" href="tokens.css">
 <style>
  main{max-width:980px;margin:0 auto;padding:32px 16px 64px;display:grid;gap:24px}
- .topo{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:center}
- .topo img{width:200px;height:200px}
+ .topo{display:grid;grid-template-columns:240px 1fr;gap:28px;align-items:center}
+ .topo img{width:240px;height:auto;border-radius:var(--raio);border:1px solid var(--fio-vazio)}
  .cores{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
  .cor{border-radius:var(--raio-p);padding:12px;min-height:84px;font-size:var(--t-1);display:flex;flex-direction:column;justify-content:flex-end;border:2px solid var(--fio-vazio)}
  .cor b{font-size:var(--t0)} .cor code{font-family:var(--mono)}
@@ -15,7 +15,7 @@
  @media (max-width:640px){.topo{grid-template-columns:1fr}.linha{grid-template-columns:1fr}}
 </style></head><body><main>
 <section class="topo">
-  <img src="vatty.svg" alt="Vatty">
+  <img src="vatty-arte.jpg" alt="Vatty, uma garota robô de cabelo rosa e fones de fita cassete, cercada por hologramas de transcrição">
   <div><h1>Oi, eu sou a Vatty.</h1>
   <p>Uma robô que ouve áudio e vídeo e transforma em texto, legenda, ata e um monte de coisa útil. Tudo é transcrito no seu computador.</p>
   <div class="linhas-btn"><button class="btn btn-principal">Importar áudio ou vídeo</button><button class="btn btn-calmo">Colar links</button></div></div>
@@ -23,12 +23,13 @@
 
 <section class="remendo"><h2>Cores</h2>
 <div class="cores">
- <div class="cor" style="background:var(--oficina)"><b>Oficina</b><code>#211c33</code>fundo</div>
- <div class="cor" style="background:var(--bancada)"><b>Bancada</b><code>#2d2744</code>painéis</div>
- <div class="cor" style="background:var(--ouvido);color:var(--sobre-ouvido)"><b>Ouvido</b><code>#3fd6c3</code>ação, progresso</div>
- <div class="cor" style="background:var(--costura);color:#211c33"><b>Costura</b><code>#ffb347</code>fio, destaque, [?]</div>
- <div class="cor" style="background:var(--fone);color:#211c33"><b>Fone</b><code>#ff5c9e</code>erro, gravando</div>
- <div class="cor" style="background:var(--papel);color:#211c33"><b>Papel</b><code>#f2eef7</code>texto</div>
+ <div class="cor" style="background:var(--oficina)"><b>Oficina</b><code>#090b12</code>fundo</div>
+ <div class="cor" style="background:var(--bancada)"><b>Bancada</b><code>#121723</code>painéis</div>
+ <div class="cor" style="background:var(--ouvido);color:var(--sobre-ouvido)"><b>Ciano</b><code>#2fd4f2</code>ação, progresso</div>
+ <div class="cor" style="background:var(--costura);color:#090b12"><b>Âmbar</b><code>#ff9a3d</code>fio, destaque, [?]</div>
+ <div class="cor" style="background:var(--fone);color:#090b12"><b>Rosa</b><code>#ff7eb6</code>erro, gravando</div>
+ <div class="cor" style="background:var(--couro);color:#fff"><b>Couro</b><code>#8a5a35</code>avental, selos</div>
+ <div class="cor" style="background:#e9f1f7;color:#090b12"><b>Papel</b><code>#e9f1f7</code>texto</div>
 </div></section>
 
 <section class="remendo ativo"><h2>Fila</h2>
@@ -41,9 +42,9 @@
 </div></section>
 
 <section class="remendo"><h2>Leitor e revisão</h2>
-<p><a class="horario" href="#">[12:34]</a> A derivada mede a taxa de variação <span class="duvida">e o limite quando h tende a zero</span> de uma função.</p>
-<p><a class="horario" href="#">[13:02]</a> Para o nome da <span class="duvida">Natty</span>, corrigir aqui vira regra do glossário.</p>
-<div class="linhas-btn"><button class="btn btn-principal">Aceitar e criar regra</button><button class="btn btn-calmo">Ignorar</button><button class="btn btn-perigo">Apagar transcrição</button></div></section>
+<div class="holo"><a class="horario" href="#">[12:34]</a> A derivada mede a taxa de variação <span class="duvida">e o limite quando h tende a zero</span> de uma função.<div class="onda"></div></div>
+<div class="holo ambar" style="margin-top:12px"><a class="horario" href="#">[13:02]</a> Para o nome da <span class="duvida">Natty</span>, corrigir aqui vira regra do glossário.<div class="onda"></div></div>
+<div class="linhas-btn" style="margin-top:16px"><button class="btn btn-principal">Aceitar e criar regra</button><button class="btn btn-calmo">Ignorar</button><button class="btn btn-perigo">Apagar transcrição</button></div></section>
 
 <section class="remendo"><h2>Terminal</h2>
 <div class="terminal"><div>$ vatty aula-derivadas.mp4 --falantes</div><div class="ok">Ouvindo... 62% (14:20 de 23:10)</div><div class="aviso">Aviso: 3 trechos com baixa confiança, marcados com [?]</div><div class="erro">Erro: Tesseract não encontrado. Instale ou use --visual nenhum.</div></div></section>
