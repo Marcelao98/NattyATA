@@ -1,6 +1,7 @@
 """CLI fina: traduz argumentos, chama as camadas e pergunta ao usuário. `vatty <url-ou-arquivo>`."""
 
 import argparse
+import json
 import sys
 import tempfile
 import textwrap
@@ -600,10 +601,21 @@ def _argumentos_ata(argv):
     return p.parse_args(argv)
 
 
+def _nomes_guardados(pasta) -> dict:
+    """Os nomes dados na interface (`nomes.json` na pasta do vídeo), se houver."""
+    try:
+        dados = json.loads((Path(pasta) / "nomes.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {str(k): str(v) for k, v in dados.items()} if isinstance(dados, dict) else {}
+
+
 def _main_ata(argv) -> int:
     args = _argumentos_ata(argv)
     try:
-        arquivos = ata.gerar(args.pasta, args.arquivo, args.formato, ata.ler_nomes(args.nomes), args.titulo)
+        nomes = _nomes_guardados(args.pasta)
+        nomes.update(ata.ler_nomes(args.nomes))  # o que vier na linha de comando manda sobre o guardado na interface
+        arquivos = ata.gerar(args.pasta, args.arquivo, args.formato, nomes, args.titulo)
     except ata.AtaErro as e:
         print(f"\nErro: {e}", file=sys.stderr)
         return 1

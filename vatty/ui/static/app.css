@@ -51,3 +51,11 @@ textarea:focus, input:focus, select:focus { border-color: var(--ouvido); outline
   .item { grid-template-columns: 1fr; } }
 #soltar p { margin-inline: auto; }
 body { padding-bottom: 8px; }
+
+.ferramenta { background: var(--remendo); border-radius: var(--raio-p); padding: 14px; margin-top: 12px; display: grid; gap: 10px; }
+.ferramenta h3 { margin: 0; font-size: var(--t0); }
+.duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.ferramenta input, .ferramenta select, .ferramenta textarea { width: 100%; font: inherit; color: var(--papel); background: var(--oficina); border: 2px solid var(--fio-vazio); border-radius: var(--raio-p); padding: 9px 11px; }
+.ferramenta input[type=checkbox] { width: auto; }
+.marcar, .filtro { font-weight: 500; display: block; margin: 8px 0; }
+.leitor-topo + details { margin-bottom: 8px; }

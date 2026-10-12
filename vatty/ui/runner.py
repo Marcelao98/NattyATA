@@ -108,7 +108,11 @@ def _linhas(fluxo):
 
 def executar(trabalho, ctx, saida, popen=subprocess.Popen) -> str:
     """Roda a CLI para o trabalho. Devolve a pasta do vídeo. `popen` entra por parâmetro para os testes."""
-    argv = montar_argv(trabalho.entrada, trabalho.opcoes, saida)
+    opcoes = dict(trabalho.opcoes)
+    padrao = Path(saida) / "glossario.txt"  # as correções que a pessoa guardou na revisão valem para os próximos
+    if "glossario" not in opcoes and padrao.is_file():
+        opcoes["glossario"] = str(padrao)
+    argv = montar_argv(trabalho.entrada, opcoes, saida)
     proc = popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                  env=ambiente())
     pasta, ultima_erro = None, ""

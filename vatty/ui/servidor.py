@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .. import buscar as _buscar
-from . import biblioteca, runner, terminal
+from . import biblioteca, prompts, revisao, runner, terminal
 
 ESTATICOS = Path(__file__).parent / "static"
 UPLOAD_MAX = 8 * 1024 ** 3
@@ -123,7 +123,7 @@ class Handler(BaseHTTPRequestHandler):
             self._api(metodo, partes)
         except biblioteca.NaoAchei:
             self._erro(404, "Não achei.")
-        except (ValueError, runner.EntradaInvalida, terminal.ComandoInvalido) as e:
+        except (ValueError, runner.EntradaInvalida, terminal.ComandoInvalido, revisao.Invalido) as e:
             self._erro(400, str(e))
         except (BrokenPipeError, ConnectionResetError):
             pass
@@ -159,6 +159,24 @@ class Handler(BaseHTTPRequestHandler):
             return
         if metodo == "GET" and p[0] == "arquivo" and len(p) == 3:
             return self._arquivo(biblioteca.arquivo_gerado(s.raiz, p[1], p[2]), nome=p[2])
+        if metodo == "GET" and p == ["prompts"]:
+            return self._json(prompts.tipos())
+        if metodo == "GET" and p[0] == "video" and len(p) == 3 and p[2] == "prompt":
+            tipo = (self._consulta().get("tipo") or [""])[0]
+            foco = (self._consulta().get("foco") or [""])[0]
+            titulo, texto, origem = biblioteca.texto_para_prompt(s.raiz, p[1])
+            try:
+                return self._json({"prompt": prompts.montar(tipo, titulo, texto, origem, foco), "aviso": prompts.AVISO})
+            except KeyError:
+                raise ValueError("Tipo de prompt desconhecido.")
+        if metodo == "POST" and p[0] == "video" and len(p) == 3 and p[2] == "corrigir":
+            c = self._corpo_json()
+            return self._json(revisao.corrigir(s.raiz, p[1], c.get("errado"), c.get("certo"), bool(c.get("guardar"))))
+        if metodo == "POST" and p[0] == "video" and len(p) == 3 and p[2] == "nomes":
+            nomes = self._corpo_json().get("nomes")
+            if not isinstance(nomes, dict):
+                raise ValueError("Mande 'nomes' como objeto: {\"Pessoa 1\": \"Ana\"}.")
+            return self._json({"nomes": revisao.dar_nomes(s.raiz, p[1], nomes)})
         if metodo == "GET" and p == ["eventos"]:
             return self._eventos()
         if metodo == "GET" and p[0] == "trabalhos" and len(p) == 3 and p[2] == "log":

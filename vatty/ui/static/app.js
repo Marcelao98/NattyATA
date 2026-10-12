@@ -223,13 +223,76 @@ function desenharLeitor() {
       el("small", { class: "dica" }, [v.fonte.canal, v.cabecalho.origem, v.cabecalho.duracao_s ? relogio(v.cabecalho.duracao_s) : null].filter(Boolean).join(", "))),
     el("div", { class: "exportar" }, ...FORMATOS.map((f) => el("a", { class: "btn-mini", href: comToken("exportar/" + encodeURIComponent(v.slug) + "/" + f) }, "." + f)),
       ...v.gerados.map((g) => el("a", { class: "btn-mini", href: comToken("arquivo/" + encodeURIComponent(v.slug) + "/" + encodeURIComponent(g)) }, g))));
-  const corpo = el("div", { class: "paragrafos" }, ...v.paragrafos.map((p) => {
+  const duvidosos = v.paragrafos.filter((p) => p.duvidoso).length;
+  const filtro = el("label", { class: "filtro" }, el("input", { type: "checkbox", id: "so-duvidosos", onchange: () => desenharParagrafos() }),
+    " Só os " + duvidosos + " trechos para revisar");
+  $("leitor").replaceChildren(topo, ferramentas(v), duvidosos ? filtro : el("span"), el("div", { class: "paragrafos", id: "paragrafos" }));
+  desenharParagrafos();
+}
+function desenharParagrafos() {
+  const v = estado.video, so = $("so-duvidosos") && $("so-duvidosos").checked;
+  const lista = v.paragrafos.filter((p) => !so || p.duvidoso);
+  $("paragrafos").replaceChildren(...(lista.length ? lista.map((p) => {
     const url = linkDoHorario(v.fonte, p.inicio_s);
     const hora = url ? el("a", { class: "horario", href: url, target: "_blank", rel: "noopener" }, p.horario) : el("span", { class: "horario" }, p.horario);
     return el("div", { class: "para" }, hora, el("span", { class: p.duvidoso ? "duvida" : "" }, p.texto));
-  }));
-  $("leitor").replaceChildren(topo, v.paragrafos.length ? corpo : el("p", { class: "vazio" }, "Esta transcrição está vazia."));
+  }) : [el("p", { class: "vazio" }, v.paragrafos.length ? "Nada para revisar aqui." : "Esta transcrição está vazia.")]));
 }
+
+/* ---------- revisão, falantes e prompt ---------- */
+function ferramentas(v) {
+  const status = el("span", { role: "status", class: "dica" });
+  const errado = el("input", { id: "f-errado", placeholder: "Como saiu (selecione no texto)", "aria-label": "Como saiu" });
+  const certo = el("input", { id: "f-certo", placeholder: "Como deveria ser", "aria-label": "Como deveria ser" });
+  const guardar = el("input", { type: "checkbox", id: "f-guardar" });
+  const corrigir = el("div", { class: "ferramenta" },
+    el("h3", {}, "Corrigir uma palavra"),
+    el("div", { class: "duas" }, errado, certo),
+    el("label", { class: "marcar" }, guardar, " Guardar como regra para as próximas transcrições"),
+    el("div", { class: "linha-btn" }, el("button", { class: "btn btn-principal", onclick: async () => {
+      try {
+        const r = await post("video/" + encodeURIComponent(v.slug) + "/corrigir", { errado: errado.value, certo: certo.value, guardar: guardar.checked });
+        status.textContent = r.vezes ? r.vezes + " troca(s) feita(s)." + (r.regra_guardada ? " Regra guardada." : "") : "Não achei essa palavra.";
+        if (r.vezes) await abrirVideo(v.slug);
+      } catch (e) { status.textContent = e.message; }
+    } }, "Corrigir"), status));
+  const partes = [corrigir];
+
+  const pessoas = ((v.falantes && v.falantes.pessoas) || []).map((p) => p.pessoa).filter((n) => /^Pessoa \d+$/.test(n));
+  if (pessoas.length) {
+    const campos = pessoas.map((n) => el("label", {}, n + (v.falantes.pessoas.find((p) => p.pessoa === n).fala_s ? " (" + relogio(v.falantes.pessoas.find((p) => p.pessoa === n).fala_s) + " de fala)" : ""),
+      el("input", { "data-pessoa": n, value: v.nomes[n] || "", placeholder: "Nome" })));
+    partes.push(el("div", { class: "ferramenta" }, el("h3", {}, "Quem é quem"), el("div", { class: "duas" }, ...campos),
+      el("div", { class: "linha-btn" }, el("button", { class: "btn btn-calmo", onclick: async () => {
+        const nomes = {};
+        document.querySelectorAll("[data-pessoa]").forEach((i) => (nomes[i.dataset.pessoa] = i.value));
+        await post("video/" + encodeURIComponent(v.slug) + "/nomes", { nomes }).catch(() => null);
+        await abrirVideo(v.slug);
+      } }, "Salvar nomes"))));
+  }
+
+  const tipo = el("select", { id: "p-tipo", "aria-label": "Tipo de prompt" });
+  api("prompts").then((l) => l.forEach((t) => tipo.append(el("option", { value: t.tipo }, t.nome)))).catch(() => {});
+  const foco = el("input", { id: "p-foco", placeholder: "Foco (opcional)", "aria-label": "Foco" });
+  const aviso = el("p", { class: "dica", id: "p-aviso" });
+  const area = el("textarea", { id: "p-area", rows: "5", hidden: true, readonly: true, "aria-label": "Prompt" });
+  partes.push(el("div", { class: "ferramenta" }, el("h3", {}, "Copiar prompt para uma IA"),
+    el("div", { class: "duas" }, tipo, foco),
+    el("div", { class: "linha-btn" }, el("button", { class: "btn btn-calmo", onclick: async () => {
+      try {
+        const r = await api("video/" + encodeURIComponent(v.slug) + "/prompt?tipo=" + encodeURIComponent(tipo.value) + "&foco=" + encodeURIComponent(foco.value));
+        aviso.textContent = r.aviso;
+        try { await navigator.clipboard.writeText(r.prompt); aviso.textContent = "Copiado. " + r.aviso; }
+        catch (_) { area.hidden = false; area.value = r.prompt; area.select(); aviso.textContent = "Selecione e copie o texto abaixo. " + r.aviso; }
+      } catch (e) { aviso.textContent = e.message; }
+    } }, "Copiar prompt")), aviso, area));
+  return el("details", { class: "opcoes" }, el("summary", {}, "Revisar, nomear e usar com uma IA"), ...partes);
+}
+document.addEventListener("mouseup", () => {
+  const sel = String(window.getSelection() || "").trim();
+  const campo = $("f-errado");
+  if (campo && sel && sel.length <= 80 && !sel.includes("\n") && $("leitor").contains(window.getSelection().anchorNode)) campo.value = sel;
+});
 
 /* ---------- começo ---------- */
 fetch("/api/estado", { headers: { "X-Vatty-Token": TOKEN } }).then((r) => {
