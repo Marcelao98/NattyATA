@@ -1,1 +1,104 @@
-<!doctype html><title>Vatty</title>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vatty</title>
+<link rel="icon" href="/static/vatty-avatar.jpg">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="vatty-card remendo">
+      <img class="arte" src="/static/vatty-arte.jpg" alt="Vatty, uma garota robô de cabelo rosa e fones de fita cassete, cercada por hologramas de transcrição">
+      <h1>Oi, eu sou a Vatty.</h1>
+      <p>Uma robô que ouve áudio e vídeo e transforma em texto, legenda, ata e um monte de coisa útil.</p>
+      <p class="selo" id="selo">Transcrição no seu computador. Só o texto vai para uma IA, e só quando você pedir.</p>
+    </div>
+    <div class="remendo painel" aria-label="Resumo">
+      <h3>Seu acervo</h3>
+      <dl class="numeros">
+        <div><dt>Vídeos</dt><dd id="n-videos">0</dd></div>
+        <div><dt>Horas</dt><dd id="n-horas">0</dd></div>
+        <div><dt>Para revisar</dt><dd id="n-duvidosos">0</dd></div>
+      </dl>
+      <div class="costura" id="barra-geral" style="--p:0%"><i></i></div>
+      <small id="resumo-fila">Nada na fila.</small>
+    </div>
+  </aside>
+
+  <main class="principal">
+    <nav class="abas" role="tablist" aria-label="Seções">
+      <button role="tab" data-aba="importar" aria-selected="true">Importar</button>
+      <button role="tab" data-aba="fila" aria-selected="false">Fila <span class="contador" id="c-fila" hidden>0</span></button>
+      <button role="tab" data-aba="biblioteca" aria-selected="false">Biblioteca</button>
+      <button role="tab" data-aba="leitor" aria-selected="false" id="aba-leitor" hidden>Leitor</button>
+    </nav>
+
+    <section id="aba-importar" class="aba" role="tabpanel">
+      <div class="remendo" id="soltar" tabindex="0" role="button" aria-label="Escolher arquivos de áudio ou vídeo">
+        <h2>Importar áudio ou vídeo</h2>
+        <p>Arraste arquivos para cá ou clique para escolher. Aceita áudio e vídeo.</p>
+        <input type="file" id="arquivos" multiple accept="audio/*,video/*,.opus,.ogg,.m4a,.mp3,.wav,.mp4,.mkv,.webm,.mov" hidden>
+      </div>
+      <div class="remendo">
+        <h2>Colar links</h2>
+        <label for="links">Um link por linha (YouTube, TikTok e outros)</label>
+        <textarea id="links" rows="4" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+        <details class="opcoes">
+          <summary>Opções</summary>
+          <div class="grade">
+            <label>Texto das URLs
+              <select id="o-texto"><option value="whisper">Transcrever com Whisper</option><option value="legenda">Usar a legenda, se houver</option></select></label>
+            <label>Quem falou
+              <select id="o-falantes"><option value="nao">Não separar</option><option value="auto">Descobrir as pessoas</option><option value="2">2 pessoas</option><option value="3">3 pessoas</option><option value="4">4 pessoas</option><option value="perfis">Só perfis cadastrados</option></select></label>
+            <label>Tela do vídeo
+              <select id="o-visual"><option value="nenhum">Só o áudio</option><option value="aula">Ler os slides (OCR)</option></select></label>
+            <label>Idioma
+              <select id="o-lang"><option value="pt">Português</option><option value="en">Inglês</option><option value="es">Espanhol</option><option value="auto">Detectar</option></select></label>
+          </div>
+          <p class="dica">Limpeza de áudio fica desligada: piora sussurro e música de fundo.</p>
+        </details>
+        <div class="linha-btn"><button class="btn btn-principal" id="enviar">Transcrever</button><span id="aviso-importar" role="status"></span></div>
+      </div>
+    </section>
+
+    <section id="aba-fila" class="aba" role="tabpanel" hidden>
+      <div class="remendo ativo">
+        <h2>Fila</h2>
+        <div id="lista-fila" class="fila"></div>
+        <p class="vazio" id="vazio-fila">Nada na fila. Importe um áudio ou cole links para começar.</p>
+      </div>
+    </section>
+
+    <section id="aba-biblioteca" class="aba" role="tabpanel" hidden>
+      <div class="remendo">
+        <h2>Biblioteca</h2>
+        <form id="form-busca" role="search"><label for="busca" class="so-leitor">Buscar em todas as transcrições</label>
+          <input id="busca" type="search" placeholder="Buscar em todas as transcrições (ex.: margem)"><button class="btn btn-calmo">Buscar</button></form>
+        <div id="achados"></div>
+        <div id="lista-biblioteca" class="biblioteca"></div>
+        <p class="vazio" id="vazio-biblioteca">Ainda não há transcrições. Importe algo e elas aparecem aqui.</p>
+      </div>
+    </section>
+
+    <section id="aba-leitor" class="aba" role="tabpanel" hidden>
+      <div class="remendo" id="leitor"></div>
+    </section>
+  </main>
+</div>
+
+<section class="gaveta" id="gaveta" aria-label="Terminal">
+  <button class="gaveta-topo" id="gaveta-botao" aria-expanded="false">Terminal</button>
+  <div class="gaveta-corpo" hidden>
+    <div class="terminal" id="terminal" role="log" aria-live="polite"></div>
+    <form id="form-comando"><label for="comando" class="so-leitor">Comando vatty</label>
+      <input id="comando" autocomplete="off" spellcheck="false" placeholder="buscar margem   |   legenda nome-da-pasta   |   corrigir nome-da-pasta">
+      <button class="btn btn-calmo">Rodar</button></form>
+  </div>
+</section>
+<script src="/static/app.js"></script>
+</body>
+</html>

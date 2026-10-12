@@ -10,7 +10,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-PERMITIDOS = ("buscar", "legenda", "corrigir", "ata", "cartoes", "niveis", "obsidian")
+from .runner import ambiente
+
+PERMITIDOS = ("buscar", "legenda", "corrigir", "ata", "cartoes", "niveis")
 TEMPO_MAX_S = 180
 SAIDA_MAX = 20000
 
@@ -49,7 +51,7 @@ def rodar(linha: str, raiz, executar=subprocess.run) -> dict:
     argv = montar(linha, raiz)
     try:
         r = executar(argv, capture_output=True, text=True, timeout=TEMPO_MAX_S, cwd=str(Path(raiz).parent),
-                     stdin=subprocess.DEVNULL, errors="replace")
+                     stdin=subprocess.DEVNULL, errors="replace", encoding="utf-8", env=ambiente())
     except subprocess.TimeoutExpired:
         return {"codigo": 124, "saida": f"Passou de {TEMPO_MAX_S}s e foi interrompido."}
     saida = (r.stdout or "") + (r.stderr or "")
