@@ -1,4 +1,4 @@
-"""CLI fina: traduz argumentos, chama as camadas e pergunta ao usuário. `ata <url-ou-arquivo>`."""
+"""CLI fina: traduz argumentos, chama as camadas e pergunta ao usuário. `vatty <url-ou-arquivo>`."""
 
 import argparse
 import sys
@@ -33,7 +33,7 @@ def _mostrar_progresso(atual: float, total: float) -> None:
 
 
 def _opcoes_comuns(p) -> None:
-    """Opções que `ata` e `ata gravar` compartilham (o que o Whisper e a pasta de saída precisam)."""
+    """Opções que `vatty` e `vatty gravar` compartilham (o que o Whisper e a pasta de saída precisam)."""
     p.add_argument("--modelo", default=motor.MODELO_PADRAO, help=f"modelo do faster-whisper (padrão: {motor.MODELO_PADRAO})")
     p.add_argument("--lang", default=motor.IDIOMA_PADRAO, help="idioma (padrão: pt; 'auto' usa o do vídeo ou detecta)")
     p.add_argument("--termos", type=Path, nargs="+", action="extend", metavar="ARQUIVO",
@@ -53,8 +53,8 @@ def _opcoes_comuns(p) -> None:
 
 
 def _argumentos(argv):
-    p = argparse.ArgumentParser(prog="ata", description="Transcreve um vídeo do YouTube, um arquivo de áudio/vídeo "
-                                "ou uma gravação. Para gravar o áudio do PC: ata gravar --help.")
+    p = argparse.ArgumentParser(prog="vatty", description="Transcreve um vídeo do YouTube, um arquivo de áudio/vídeo "
+                                "ou uma gravação. Para gravar o áudio do PC: vatty gravar --help.")
     p.add_argument("entrada", help="URL do YouTube, arquivo (.opus, .ogg, .mp3, .m4a, .wav, .mp4...) "
                                    "ou pasta de uma gravação (gravacoes/AAAA-MM-DD_HH-MM)")
     _opcoes_comuns(p)
@@ -147,7 +147,7 @@ def _do_youtube(args):
                        "Use --texto legenda ou --texto whisper.")
 
         destino = args.saida / pasta.slug(video.titulo, video.id)
-        with tempfile.TemporaryDirectory(prefix="natty-ata-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="vatty-") as tmp:
             if escolha:
                 vtt = fonte.baixar_legenda(video.url, escolha.chave, escolha.automatica, Path(tmp))
                 segmentos = legenda.ler_vtt(vtt.read_text(encoding="utf-8"))
@@ -265,7 +265,7 @@ def _lang_visual(args, dados_fonte) -> str | None:
 def _fazer_visual(args, destino: Path, dados_fonte: dict) -> None:
     idiomas = ocr.idiomas_para(_lang_visual(args, dados_fonte))
     exe = ocr.verificar(idiomas)  # antes de baixar qualquer coisa
-    with tempfile.TemporaryDirectory(prefix="natty-ata-visual-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="vatty-visual-") as tmp:
         if fonte.eh_url(args.entrada):
             print("\nBaixando o vídeo (só a imagem, até 720p)...")
             video = fonte.baixar_video(dados_fonte.get("url") or args.entrada, Path(tmp))
@@ -311,7 +311,7 @@ def _visual(args, destino: Path, dados_fonte: dict) -> int:
 
 def _argumentos_gravar(argv):
     p = argparse.ArgumentParser(
-        prog="ata gravar",
+        prog="vatty gravar",
         description="Grava o áudio do PC (Windows) até Ctrl+C. Com --mic grava também o microfone, "
                     "em outra faixa. Cada faixa vira um .wav em gravacoes/AAAA-MM-DD_HH-MM/.")
     p.add_argument("--mic", action="store_true", help="grava também o microfone (faixa separada: 'eu')")
@@ -349,7 +349,7 @@ def _main_gravar(argv) -> int:
     for nome in resultado.faixas_mudas():
         print(f"Aviso: a faixa '{nome}' ficou quase muda. Era pra ter som nela?")
     if not args.transcrever:
-        print(f"Para transcrever depois: ata {resultado.pasta}")
+        print(f"Para transcrever depois: vatty {resultado.pasta}")
         return 0
     args.entrada = str(resultado.pasta)
     return _executar(args)

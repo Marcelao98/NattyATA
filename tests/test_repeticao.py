@@ -1,7 +1,7 @@
 import unittest
 
-from natty_ata import repeticao
-from natty_ata.motor import Segmento
+from vatty import repeticao
+from vatty.motor import Segmento
 
 TERMOS = repeticao.termos_da_lista("call, put, strike, notional, delta, gama, hedge, swap")
 

@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from natty_ata import fonte
+from vatty import fonte
 
 INFO = {
     "id": "abc123",

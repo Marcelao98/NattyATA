@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from natty_ata import motor
+from vatty import motor
 
 
 class ModeloDuble:

@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from natty_ata import ocr
+from vatty import ocr
 
 # Saída real do Tesseract 5 (`tesseract slide.png stdout -l eng tsv`), encurtada.
 TSV = "\n".join([

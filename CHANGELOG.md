@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.10.0 — 2026-10-12
+
+Natty-ATA virou **Vatty** (*Video Audio To Almost Everything*). Só nome e
+documentação: nenhum comportamento mudou.
+
+- Pacote `natty_ata` -> `vatty`; projeto `natty-ata` -> `vatty`.
+- Comando `ata` -> `vatty`. O `ata` continua instalado como apelido, para não
+  quebrar o que já estava em uso.
+- README e `CLAUDE.md` com a história da Vatty e a persona da conversa
+  principal. A persona não entra nos arquivos dos agentes.
+- Escrivão e Preceptor citam a Vatty; os nomes deles não mudam.
+- O contrato da pasta do vídeo (`transcricoes/<slug>/`) é o mesmo: o que já foi
+  transcrito continua valendo.
+- Depois de atualizar: `pip install -e .` de novo para o comando `vatty`
+  aparecer.
+
 ## 0.9.0 — 2026-10-10
 
 Menos tokens nos agentes. Os agentes gastavam muito: um Escrivão de vídeo de

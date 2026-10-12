@@ -1,7 +1,7 @@
 import unittest
 
-from natty_ata import legenda
-from natty_ata.motor import Segmento
+from vatty import legenda
+from vatty.motor import Segmento
 
 # Imita a legenda automática do YouTube: linha "rolando", trechos de 10 ms
 # repetidos, tempos dentro da linha e marcas como [Música].

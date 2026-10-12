@@ -1,10 +1,35 @@
-# Natty-ATA
+# Vatty
 
-Transforma um vídeo do YouTube ou um arquivo de áudio/vídeo em texto. No
-YouTube usa a legenda quando existe e você aprova; senão transcreve
-localmente com o [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
-(modelo `large-v3-turbo`, CPU, int8). Faz parte do ecossistema da Natty, mas é
-independente dela: nada de Discord aqui.
+*Video Audio To Almost Everything.* Uma garota robô que ouve tudo.
+
+> **A história.** A Natty é uma bot de mesa de RPG: ela narra, rola dados e,
+> principalmente, **ouve** a sessão inteira para escrever a ata depois. O
+> ouvido dela (o módulo Escriba) é bom demais. Um engenheiro maluco, o
+> Marcelo, copiou esse ouvido e montou em volta dele um corpo de peças
+> diferentes, remendado, com cobre aparecendo nas juntas. Assim nasceu a Vatty.
+> Ela escuta qualquer vídeo, áudio ou gravação, e depois vira quase qualquer
+> coisa: transcrição, pontos-chave, aula explicada do zero. O que ela não
+> entende são pessoas (ainda). Aprendeu o mundo por áudio, e por isso odeia
+> música de fundo.
+
+Na prática: a Vatty transforma um vídeo do YouTube, um arquivo de áudio/vídeo ou
+uma gravação do seu PC em texto. No YouTube usa a legenda quando existe e você
+aprova; senão transcreve localmente com o
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) (modelo
+`large-v3-turbo`, CPU, int8). Depois, as agentes dela (o Escrivão e o
+Preceptor, no Claude Code) transformam o texto em material útil. Nasceu do
+ouvido da Natty, mas é independente dela: nada de Discord aqui.
+
+## Quem é quem
+
+| Quem | Papel | O que faz |
+|---|---|---|
+| **Vatty** | ouvinte | ouve (baixa, transcreve, lê a tela) e conversa com você |
+| **Escrivão** | o lado literal | registra o que foi dito, com horário, sem inventar |
+| **Preceptor** | o lado professora | reorganiza e ensina, marcando o que é acréscimo |
+
+Quem ouve é código comum, sem custo de LLM. Quem julga (resumir, ensinar) é
+agente, sob demanda.
 
 ## Instalação
 
@@ -36,8 +61,8 @@ pip install -e .
 ## Uso
 
 ```bash
-ata "https://www.youtube.com/watch?v=..."
-ata gravacao.opus
+vatty "https://www.youtube.com/watch?v=..."
+vatty gravacao.opus
 ```
 
 Cada entrada vira uma pasta em `transcricoes/<nome>/`:
@@ -54,21 +79,21 @@ Arquivo local aceita qualquer formato que o ffmpeg abra: `.opus`, `.ogg`,
 ### Visual: o que aparece na tela (slides + OCR)
 
 Aula com slide mostra fórmulas e listas que o professor não fala. Com
-`--visual`, depois do texto a `ata` acha as trocas de tela, lê o texto de cada
+`--visual`, depois do texto a Vatty acha as trocas de tela, lê o texto de cada
 slide com o Tesseract e grava `visual.json` e `frames/` na pasta do vídeo. O
 Escrivão e o Preceptor usam isso quando existe.
 
 ```bash
-ata "https://www.youtube.com/watch?v=..." --visual auto   # mostra um palpite e pergunta
-ata "https://www.youtube.com/watch?v=..." --visual aula   # faz direto
-ata aula.mp4 --visual aula                                # vídeo local: não baixa nada
+vatty "https://www.youtube.com/watch?v=..." --visual auto   # mostra um palpite e pergunta
+vatty "https://www.youtube.com/watch?v=..." --visual aula   # faz direto
+vatty aula.mp4 --visual aula                                # vídeo local: não baixa nada
 ```
 
 - **`auto`** mostra quantas trocas de tela há por minuto, quantas palavras por
   tela e o formato, dá um palpite (aula ou não) e pergunta; Enter aceita o
   palpite. Sem terminal, use `aula` ou `nenhum`.
 - **O texto sai primeiro.** Se o visual falhar (Tesseract não instalado, erro
-  do ffmpeg), o texto já está salvo e a `ata` avisa e sai com código 1.
+  do ffmpeg), o texto já está salvo e a Vatty avisa e sai com código 1.
 - **Vídeo:** de URL baixa só a imagem, até 720p (480p deixa o texto pequeno
   demais para o OCR), e apaga depois. Peso de 1 hora em 720p: centenas de MB
   temporários.
@@ -88,10 +113,10 @@ com `--mic`, o seu microfone em outra faixa:
 ```bash
 pip install -e ".[gravacao]"          # uma vez: a biblioteca de captura (só Windows)
 
-ata gravar --duracao 5                # teste rápido: grava 5 s, deixe algo tocando
-ata gravar                            # grava o som do PC até Ctrl+C
-ata gravar --mic --transcrever        # PC + microfone; ao parar, já transcreve
-ata gravacoes/2026-10-10_14-30        # transcreve depois uma gravação guardada
+vatty gravar --duracao 5                # teste rápido: grava 5 s, deixe algo tocando
+vatty gravar                            # grava o som do PC até Ctrl+C
+vatty gravar --mic --transcrever        # PC + microfone; ao parar, já transcreve
+vatty gravacoes/2026-10-10_14-30        # transcreve depois uma gravação guardada
 ```
 
 Cada faixa vira um `.wav` de 16 kHz mono (uns 115 MB por hora) em
@@ -117,8 +142,8 @@ mais de tempo, mas evita trechos curtos com horário de silêncio.
   com `--manter-audio`), compare as duas saídas:
 
   ```bash
-  ata gravacoes/2026-10-10_14-30 --saida teste/padrao
-  ata gravacoes/2026-10-10_14-30 --saida teste/vad --vad-silencio-ms 600
+  vatty gravacoes/2026-10-10_14-30 --saida teste/padrao
+  vatty gravacoes/2026-10-10_14-30 --saida teste/vad --vad-silencio-ms 600
   ```
 
   e leia o `transcricao-eu.txt` de cada uma. Se melhorar, o valor vira padrão
@@ -126,18 +151,18 @@ mais de tempo, mas evita trechos curtos com horário de silêncio.
   provados, o faster-whisper só o aplica na primeira janela.)
 - **Silêncio:** o Windows não entrega áudio enquanto nada toca. A gravação
   segue o relógio e completa com silêncio, então os horários continuam
-  certos. Se uma faixa ficar quase muda, a `ata` avisa no fim.
-- **O áudio:** depois de transcrever, a `ata` pergunta se apaga os `.wav`
+  certos. Se uma faixa ficar quase muda, a Vatty avisa no fim.
+- **O áudio:** depois de transcrever, a Vatty pergunta se apaga os `.wav`
   (o padrão é guardar). `--apagar-audio` ou `--manter-audio` pulam a pergunta.
 - **Dispositivo:** usa o alto-falante e o microfone padrão do Windows. Para
   gravar outro, troque o padrão nas configurações de som.
 - **Consentimento:** gravar uma conversa sem avisar os outros participantes
-  pode ser ilegal onde você mora. A `ata` lembra disso ao começar.
+  pode ser ilegal onde você mora. A Vatty lembra disso ao começar.
 
 ### YouTube: legenda primeiro
 
 Se o vídeo tem legenda no idioma pedido (a manual do autor antes da
-automática do YouTube), a `ata` baixa só a legenda, que leva segundos, e
+automática do YouTube), a Vatty baixa só a legenda, que leva segundos, e
 mostra alguns números e três trechos (começo, meio e fim). Você decide: usar
 a legenda ou transcrever com Whisper, que leva minutos. O áudio só é baixado
 se você escolher o Whisper, e é apagado depois.
@@ -162,17 +187,17 @@ Ajuda o Whisper com palavras que ele costuma errar: termos em inglês, siglas,
 nomes próprios. Há uma pronta para mercado financeiro:
 
 ```bash
-ata "https://www.youtube.com/watch?v=..." --texto whisper --termos termos/mercado-financeiro.txt
+vatty "https://www.youtube.com/watch?v=..." --texto whisper --termos termos/mercado-financeiro.txt
 ```
 
 Listas prontas em `termos/`: `mercado-financeiro.txt`, `tecnologia-ia.txt` (IA,
 Claude Code, ChatGPT, GitHub, TikTok...) e `girias-brasil.txt` (mano, sacou, tá
-ligado, rolê, paia...). Dá para usar mais de uma, e a `ata` junta sem repetir
+ligado, rolê, paia...). Dá para usar mais de uma, e a Vatty junta sem repetir
 termo e avisa se a soma passar do limite. Ponha a entrada **antes** de
 `--termos` (ou separe com `--`):
 
 ```bash
-ata gravacoes/2026-10-10_14-30 --termos termos/tecnologia-ia.txt termos/girias-brasil.txt
+vatty gravacoes/2026-10-10_14-30 --termos termos/tecnologia-ia.txt termos/girias-brasil.txt
 ```
 
 O faster-whisper coloca a lista como "texto anterior" em toda janela de 30 s,
@@ -180,7 +205,7 @@ e com áudio confuso o Whisper às vezes copia a lista ou repete uma frase (já
 aconteceu numa sessão real da Natty). Por isso, com `--termos`:
 
 1. **Lista curta.** O Whisper só usa ~223 tokens da lista; acima disso a
-   `ata` avisa. Coloque só o que ele erra, não palavras comuns.
+   a Vatty avisa. Coloque só o que ele erra, não palavras comuns.
 2. **Detecção.** Depois de transcrever, procura sinais de loop: texto
    repetitivo demais (o mesmo critério de compressão do Whisper), segmento
    que é quase só termos da lista, ou a mesma frase em segmentos seguidos.

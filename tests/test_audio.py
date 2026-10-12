@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from natty_ata import audio
+from vatty import audio
 
 
 class TestAudio(unittest.TestCase):

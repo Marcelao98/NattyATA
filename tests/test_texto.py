@@ -1,8 +1,8 @@
 import unittest
 
-from natty_ata.motor import Segmento
-from natty_ata import texto
-from natty_ata.texto import DURACAO_MAX_PARAGRAFO_S, PAUSA_PARAGRAFO_S, formatar, juntar_em_paragrafos
+from vatty.motor import Segmento
+from vatty import texto
+from vatty.texto import DURACAO_MAX_PARAGRAFO_S, PAUSA_PARAGRAFO_S, formatar, juntar_em_paragrafos
 
 
 class TestParagrafos(unittest.TestCase):

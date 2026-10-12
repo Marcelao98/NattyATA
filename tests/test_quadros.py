@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from natty_ata import quadros
-from natty_ata.audio import FfmpegAusente
+from vatty import quadros
+from vatty.audio import FfmpegAusente
 
 
 def achar(nome):
