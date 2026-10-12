@@ -31,6 +31,8 @@ def juntar_com_inicio(
         texto = seg.texto.strip()
         if not texto:
             continue
+        if getattr(seg, "duvidoso", None):  # o Whisper não confiou neste trecho: marca onde
+            texto = f"{texto} [?]"
         # `pessoa` (separação de falantes) manda sobre `falante`; sem nenhum dos dois, nada muda.
         falante = getattr(seg, "pessoa", None) or getattr(seg, "falante", None)
         mesmo_falante = falante == falante_atual

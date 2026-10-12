@@ -38,11 +38,14 @@ def _transcricao_json(resultado) -> str:
         cabecalho["faixas"] = resultado.faixas
     if getattr(resultado, "preprocessamento", None):  # só se o áudio foi pré-processado
         cabecalho["preprocessamento"] = resultado.preprocessamento
+    duvidosos = sum(1 for s in resultado.segmentos if getattr(s, "duvidoso", None))
+    if duvidosos:  # só se algum trecho ficou duvidoso (marcado com [?] no texto)
+        cabecalho["trechos_duvidosos"] = duvidosos
     if getattr(resultado, "glossario", None):  # só se o glossário corrigiu algo
         cabecalho["glossario"] = resultado.glossario
     linhas = [f"  {json.dumps(k, ensure_ascii=False)}: {json.dumps(v, ensure_ascii=False)}," for k, v in cabecalho.items()]
     # `falante` (duas faixas) e `pessoa` (separação de falantes) só aparecem quando existem.
-    dados = [{k: v for k, v in asdict(s).items() if k not in ("falante", "pessoa") or v is not None}
+    dados = [{k: v for k, v in asdict(s).items() if k not in ("falante", "pessoa", "duvidoso") or v is not None}
              for s in resultado.segmentos]
     segmentos = [f"    {json.dumps(d, ensure_ascii=False)}" for d in dados]
     linhas.append('  "segmentos": [')
@@ -63,7 +66,7 @@ def carregar(pasta) -> tuple:
         dados = json.loads((pasta / "transcricao.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         raise FileNotFoundError(f"Pasta do vídeo incompleta ({pasta}): {e}")
-    campos = ("inicio", "fim", "texto", "falante", "pessoa")
+    campos = ("inicio", "fim", "texto", "falante", "pessoa", "duvidoso")
     segmentos = [Segmento(**{k: v for k, v in s.items() if k in campos}) for s in dados["segmentos"]]
     return fonte, Resultado(
         fonte=dados.get("fonte", ""), duracao_s=dados.get("duracao_s", 0.0), modelo=dados.get("modelo"),

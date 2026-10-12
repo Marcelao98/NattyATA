@@ -121,6 +121,27 @@ class TestPasta(unittest.TestCase):
             self.assertEqual(dados["segmentos"], [])
 
 
+class TestDuvidososNaPasta(unittest.TestCase):
+    def _gravar(self, segmentos):
+        resultado = Resultado(fonte="a.opus", duracao_s=3.0, modelo="m", idioma="pt", segmentos=segmentos)
+        with tempfile.TemporaryDirectory() as d:
+            pasta.gravar(Path(d), {"tipo": "arquivo"}, resultado)
+            dados = json.loads((Path(d) / "transcricao.json").read_text(encoding="utf-8"))
+            return dados, (Path(d) / "transcricao.txt").read_text(encoding="utf-8")
+
+    def test_json_e_txt_marcam_o_duvidoso(self):
+        dados, txt = self._gravar([Segmento(0, 1, "oi"), Segmento(1, 2, "hm", duvidoso="confianca -1.50")])
+        self.assertEqual(dados["trechos_duvidosos"], 1)
+        self.assertEqual(dados["segmentos"][1]["duvidoso"], "confianca -1.50")
+        self.assertNotIn("duvidoso", dados["segmentos"][0])
+        self.assertIn("hm [?]", txt)
+
+    def test_sem_duvidoso_o_formato_nao_muda(self):
+        dados, txt = self._gravar([Segmento(0, 1, "oi")])
+        self.assertNotIn("trechos_duvidosos", dados)
+        self.assertNotIn("[?]", txt)
+
+
 class TestGlossarioNaPasta(unittest.TestCase):
     def _gravar(self, **extra):
         resultado = Resultado(fonte="a.opus", duracao_s=1.0, modelo="m", idioma="pt",

@@ -199,3 +199,7 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
   de `--termos`, que só ajuda o Whisper a ouvir. `--glossario ARQ` (ou `~/.vatty/glossario.txt`, se existir)
   na transcrição; `vatty corrigir <pasta>` refaz uma pasta pronta (`pasta.carregar`). Registra o que trocou
   em `glossario` no cabeçalho do `transcricao.json`; `corrigir` repetido soma.
+- `duvidoso.py`: usa `avg_logprob`, `no_speech_prob` e `compression_ratio` que o faster-whisper já devolve
+  (limites -1,0 / 0,6 / 2,4, os padrões do Whisper, **não calibrados** com áudio real). O `motor` grava o
+  motivo em `Segmento.duvidoso`; `texto.py` põe ` [?]` depois do trecho. Legenda do YouTube não tem esses
+  números, então não marca. Escrivão e Secretário listam esses trechos em "trechos que a transcrição errou".
