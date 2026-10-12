@@ -643,6 +643,49 @@ def _main_corrigir(argv) -> int:
     return 0
 
 
+def _main_lote(argv) -> int:
+    import subprocess
+    from . import lote
+    from .ui import runner
+    p = argparse.ArgumentParser(prog="vatty lote", description="Transcreve vários links ou arquivos, um de cada vez. "
+                                "A fonte é um arquivo .txt (uma entrada por linha; # comenta) ou o link de uma playlist ou canal.")
+    p.add_argument("fonte")
+    p.add_argument("--saida", type=Path, default=Path("transcricoes"))
+    p.add_argument("--texto", choices=("legenda", "whisper"), default="whisper")
+    p.add_argument("--visual", choices=("nenhum", "aula"), default="nenhum")
+    p.add_argument("--preprocessar", choices=("sim", "nao"), default="nao")
+    p.add_argument("--falantes", type=_tipo_falantes, default="nao")
+    p.add_argument("--lang", default=None)
+    p.add_argument("--glossario", type=Path, default=None)
+    p.add_argument("--relatorio", type=Path, default=None, help="onde guardar o relatório em JSON (padrão: <saida>/lote-relatorio.json)")
+    args = p.parse_args(argv)
+    opcoes = {"texto": args.texto, "visual": args.visual, "preprocessar": args.preprocessar,
+              "falantes": args.falantes, "lang": args.lang or "", "glossario": str(args.glossario) if args.glossario else ""}
+    try:
+        entradas = lote.entradas_da_fonte(args.fonte)
+    except Exception as e:  # LoteErro, ou o yt-dlp recusando a playlist
+        print(f"\nErro: {e}", file=sys.stderr)
+        return 1
+    print(f"{len(entradas)} entrada(s). Uma de cada vez; um erro não para as outras.")
+
+    def rodar_um(entrada):
+        try:
+            argv_item = runner.montar_argv(entrada, opcoes, args.saida)
+        except runner.EntradaInvalida as e:
+            return 1, str(e)
+        r = subprocess.run(argv_item, env=runner.ambiente(), stdin=subprocess.DEVNULL, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace")
+        saida = (r.stdout or "") + (r.stderr or "")
+        erro = next((l for l in reversed(saida.splitlines()) if l.startswith("Erro")), "")
+        return r.returncode, erro
+
+    relatorio = lote.executar(entradas, rodar_um)
+    args.saida.mkdir(parents=True, exist_ok=True)
+    destino = lote.gravar_relatorio(relatorio, args.relatorio or args.saida / "lote-relatorio.json")
+    print(lote.resumo(relatorio) + f"\nRelatório: {destino}")
+    return 0 if not relatorio["falhas"] else 1
+
+
 def _main_legenda(argv) -> int:
     p = argparse.ArgumentParser(prog="vatty legenda", description="Gera legenda .srt/.vtt de uma pasta já transcrita.")
     p.add_argument("pasta")
@@ -671,6 +714,8 @@ def main(argv=None) -> int:
         return _main_ata(argv[1:])
     if argv and argv[0] == "perfil":
         return _main_perfil(argv[1:])
+    if argv and argv[0] == "lote":
+        return _main_lote(argv[1:])
     if argv and argv[0] == "ui":
         from .ui import app
         return app.main(argv[1:])

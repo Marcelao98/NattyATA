@@ -214,5 +214,38 @@ class TestSessao(unittest.TestCase):
         self.assertEqual(YoutubeDLDuble.criados[0].fechado, 1)
 
 
+
+class TestListarPlaylist(unittest.TestCase):
+    def _duble(self, info):
+        class D:
+            def __init__(self, opcoes):
+                self.opcoes = opcoes
+                D.ultimo = self
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *e):
+                return False
+
+            def extract_info(self, url, download):
+                assert download is False
+                return info
+        return D
+
+    def test_playlist_vira_lista_de_links_e_pula_indisponivel(self):
+        info = {"title": "Aulas", "entries": [{"url": "https://www.youtube.com/watch?v=a"}, None, {"id": "b"},
+                                               {"url": "b2", "id": "c"}]}
+        titulo, urls = fonte.listar_playlist("https://youtube.com/playlist?list=x", self._duble(info))
+        self.assertEqual(titulo, "Aulas")
+        self.assertEqual(urls, ["https://www.youtube.com/watch?v=a", "https://www.youtube.com/watch?v=b",
+                                "https://www.youtube.com/watch?v=c"])
+
+    def test_video_unico_devolve_ele_mesmo_e_pede_flat(self):
+        duble = self._duble({"title": "Um"})
+        self.assertEqual(fonte.listar_playlist("https://youtu.be/x", duble), ("Um", ["https://youtu.be/x"]))
+        self.assertEqual(duble.ultimo.opcoes["extract_flat"], "in_playlist")
+
+
 if __name__ == "__main__":
     unittest.main()

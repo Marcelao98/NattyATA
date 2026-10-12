@@ -249,6 +249,17 @@ Limites conhecidos: fala sobreposta erra; um trecho do Whisper vai inteiro para 
 modelo de voz foi treinado em chinês e inglês e os limiares foram medidos só em voz sintética em português:
 teste com reunião real e me conte.
 
+### Lote e playlist: `vatty lote`
+
+```bash
+vatty lote lista.txt                      # uma entrada por linha (link ou arquivo); # comenta
+vatty lote "https://youtube.com/playlist?list=..." --falantes auto
+```
+
+Roda um de cada vez, como `vatty <entrada>` à parte: um erro não para os outros. No fim mostra o que
+falhou e grava `lote-relatorio.json` na pasta de saída. Sem terminal para perguntar, o lote usa
+`--texto whisper` e `--preprocessar nao` (mude com as flags).
+
 ### Interface no navegador: `vatty ui`
 
 ```bash

@@ -209,3 +209,5 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
   nunca sai da raiz), `revisao.py` (corrigir palavra, regra do glossário em `<raiz>/glossario.txt`,
   `nomes.json`), `prompts.py` ("copiar prompt"), `saude.py` (o que falta instalar), `static/` (tela).
   A interface não chama LLM: só gera o texto do prompt.
+- `lote.py`: `vatty lote`. Lê a lista (ou expande a playlist), roda cada item como subprocesso `vatty`, não para no
+  erro e devolve o relatório. `fonte.listar_playlist` usa `extract_flat`.
