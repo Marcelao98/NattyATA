@@ -8,7 +8,7 @@ import textwrap
 import time
 from pathlib import Path
 
-from . import acervo, aula, ata, audio, cartoes as _cartoes, traducao as _traducao, diarizar, fonte, glossario, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, srt, visual, vozes
+from . import acervo, aula, ata, audio, cartoes as _cartoes, traducao as _traducao, diarizar, fonte, glossario, gravacao, legenda, motor, ocr, pasta, perfis, preprocessar, quadros, srt, tela, visual, vozes
 from .audio import ErroDeDecodificacao, FfmpegAusente
 
 PREPROCESSAR_ESCOLHAS = ("perguntar", "sim", "nao")
@@ -17,6 +17,8 @@ VISUAL_ESCOLHAS = ("nenhum", "auto", "aula")
 
 AVISO_CONSENTIMENTO = ("Aviso: gravar uma conversa sem avisar os outros participantes pode ser ilegal "
                        "onde você mora. Avise quem estiver na gravação.")
+AVISO_TELA = ("Aviso: a tela também vai ser gravada. Ela pode mostrar senha, notificação e conversa de outras "
+              "pessoas; feche o que não deve aparecer. A imagem fica só neste PC.")
 
 
 class Erro(Exception):
@@ -49,6 +51,8 @@ def _opcoes_comuns(p) -> None:
                    help="gravação: apaga os .wav depois de transcrever, sem perguntar")
     p.add_argument("--manter-audio", dest="apagar_audio", action="store_false", default=None,
                    help="gravação: guarda os .wav depois de transcrever, sem perguntar")
+    p.add_argument("--manter-tela", dest="manter_tela", action="store_true",
+                   help="gravação com tela: guarda o tela.mp4 depois de tirar os slides (padrão: apagar)")
     p.add_argument("--horario-por-palavra", dest="horario_por_palavra", choices=("auto", "sim", "nao"), default="auto",
                    help="ajusta o início e o fim de cada trecho à primeira e à última palavra (gasta mais tempo). "
                         "'auto' (padrão) liga só em gravação; 'sim' liga sempre; 'nao' desliga")
@@ -287,6 +291,8 @@ def _do_gravacao(args, pasta_audio: Path):
     resultado = gravacao.juntar_faixas(resultados)
     dados = {"tipo": "gravacao", "titulo": f"Gravação {pasta_audio.name}", "data": pasta_audio.name,
              "duracao_s": resultado.duracao_s, "faixas": list(faixas), "falantes": gravacao.FALANTES}
+    metadados = gravacao.ler_metadados(pasta_audio)  # só existe em gravação com tela
+    dados.update({k: metadados[k] for k in ("inicios", "tela") if k in metadados})
     return args.saida / pasta.slug(f"gravacao {pasta_audio.name}"), dados, resultado
 
 
@@ -307,6 +313,9 @@ def _apagar_audio(args, pasta_audio: Path) -> None:
         return
     for arquivo in arquivos:
         arquivo.unlink()
+    metadados = pasta_audio / gravacao.METADADOS
+    if metadados.is_file() and not (pasta_audio / tela.ARQUIVO).exists():
+        metadados.unlink()  # sem áudio e sem tela, os horários de início não servem para nada
     try:
         pasta_audio.rmdir()  # só se ficou vazia: nunca apaga o que não é nosso
     except OSError:
@@ -367,16 +376,16 @@ def _lang_visual(args, dados_fonte) -> str | None:
     return (dados_fonte.get("idioma") or "")[:2] or None
 
 
-def _fazer_visual(args, destino: Path, dados_fonte: dict) -> None:
+def _fazer_visual(args, destino: Path, dados_fonte: dict, video=None, deslocamento=None) -> None:
     idiomas = ocr.idiomas_para(_lang_visual(args, dados_fonte))
     exe = ocr.verificar(idiomas)  # antes de baixar qualquer coisa
     with tempfile.TemporaryDirectory(prefix="vatty-visual-") as tmp:
-        if fonte.eh_url(args.entrada):
+        if video is None and fonte.eh_url(args.entrada):
             print("\nBaixando o vídeo (só a imagem, até 720p)...")
             sessao = getattr(args, "sessao", None)  # a mesma leitura do texto: o TikTok recusa a segunda
             video = (sessao.baixar_video(Path(tmp)) if sessao
                      else fonte.baixar_video(dados_fonte.get("url") or args.entrada, Path(tmp)))
-        else:
+        elif video is None:  # arquivo local; com `video`, é a tela de uma gravação
             video = Path(args.entrada)
         print("Procurando as trocas de tela...")
         deteccao = aula.detectar(video, progresso=_progresso_visual("tela"))
@@ -396,18 +405,20 @@ def _fazer_visual(args, destino: Path, dados_fonte: dict) -> None:
                             parametros={"intervalo_s": visual.INTERVALO_S, "limiar_mudanca": visual.LIMIAR_MUDANCA,
                                         "max_slides": visual.MAX_SLIDES, "escolha": args.visual})
         print()
+    if deslocamento is not None:  # gravação: os horários da tela vão para a linha do tempo do áudio
+        dados = tela.sincronizar(dados, deslocamento)
     caminho = pasta.gravar_visual(destino, dados)
     print(f"Visual: {len(dados['eventos'])} slide(s) em {caminho.parent} (visual.json e frames/).")
 
 
-def _visual(args, destino: Path, dados_fonte: dict) -> int:
+def _visual(args, destino: Path, dados_fonte: dict, video=None, deslocamento=None) -> int:
     """Roda o visual depois do texto. Se falhar, o texto já está salvo: avisa e sai com código 1."""
     try:
         from yt_dlp.utils import DownloadError
     except ImportError:  # pragma: no cover
         DownloadError = RuntimeError
     try:
-        _fazer_visual(args, destino, dados_fonte)
+        _fazer_visual(args, destino, dados_fonte, video, deslocamento)
     except (Erro, ocr.ErroOcr, quadros.ErroDeVideo, FfmpegAusente, FileNotFoundError, RuntimeError, DownloadError) as e:
         print(f"\nErro no visual: {e}\nO texto já está salvo em {destino}.", file=sys.stderr)
         return 1
@@ -423,6 +434,11 @@ def _argumentos_gravar(argv):
                     "em outra faixa. Cada faixa vira um .wav em gravacoes/AAAA-MM-DD_HH-MM/.")
     p.add_argument("--mic", action="store_true", help="grava também o microfone (faixa separada: 'eu')")
     p.add_argument("--transcrever", action="store_true", help="ao parar, já transcreve e cria a pasta do vídeo")
+    p.add_argument("--tela", action="store_true",
+                   help="grava também a tela inteira (ffmpeg, 2 quadros por segundo, sem som) em tela.mp4. Com "
+                        "--transcrever, os slides vão para o visual.json e o tela.mp4 é apagado (salvo --manter-tela)")
+    p.add_argument("--tela-janela", dest="tela_janela", metavar="TÍTULO",
+                   help="grava só a janela com esse título exato, em vez da tela inteira (já liga --tela)")
     p.add_argument("--duracao", type=float, metavar="SEGUNDOS", help="para sozinho depois desse tempo (bom para testar: 5)")
     p.add_argument("--gravacoes", type=Path, default=Path("gravacoes"), help="onde guardar os .wav (padrão: gravacoes/)")
     _opcoes_comuns(p)
@@ -439,27 +455,73 @@ def _mostrar_gravando(decorrido: float, niveis: dict) -> None:
     print(f"\r  {_relogio(decorrido)}  {faixas}  ", end="", flush=True)
 
 
+def _desfazer_tela(captura, destino: Path) -> None:
+    """A gravação não começou: para o ffmpeg (se abriu) e não deixa pasta nem vídeo pela metade."""
+    if captura is not None:
+        captura.parar()
+    (destino / tela.ARQUIVO).unlink(missing_ok=True)
+    try:
+        destino.rmdir()
+    except OSError:
+        pass
+
+
 def _main_gravar(argv) -> int:
     args = _argumentos_gravar(argv)
+    com_tela = args.tela or args.tela_janela is not None
     print(AVISO_CONSENTIMENTO)
+    if com_tela:
+        print(AVISO_TELA)
+    destino = gravacao.pasta_nova(args.gravacoes, time.strftime("%Y-%m-%d_%H-%M"))
+    captura = None
     try:
+        if com_tela:
+            # A tela abre antes do áudio: o ffmpeg demora um pouco para gravar o primeiro quadro,
+            # e o áudio aberto antes ficaria acumulando essa espera.
+            destino.mkdir(parents=True)
+            captura = tela.CapturaTela(destino / tela.ARQUIVO, janela=args.tela_janela)
+            print(f"  tela: {args.tela_janela or 'tela inteira'} ({tela.FPS} quadros por segundo)")
         entradas = gravacao.abrir_entradas(microfone=args.mic)
         for e in entradas:
             print(f"  {e.nome}: {getattr(e, 'descricao', '')}")
-        destino = gravacao.pasta_nova(args.gravacoes, time.strftime("%Y-%m-%d_%H-%M"))
         print("Gravando. Ctrl+C para parar." if args.duracao is None else f"Gravando por {args.duracao:g}s.")
         resultado = gravacao.gravar(entradas, destino, duracao_max=args.duracao, progresso=_mostrar_gravando)
-    except gravacao.ErroGravacao as e:
+    except (gravacao.ErroGravacao, tela.ErroTela) as e:
+        if com_tela:
+            _desfazer_tela(captura, destino)
         print(f"\nErro: {e}", file=sys.stderr)
         return 1
+    except BaseException:
+        if captura is not None:
+            captura.parar()  # nunca deixa o ffmpeg gravando sozinho
+        raise
     print(f"\nGravado: {_relogio(resultado.duracao_s)} em {resultado.pasta}")
     for nome in resultado.faixas_mudas():
         print(f"Aviso: a faixa '{nome}' ficou quase muda. Era pra ter som nela?")
+    if captura is not None:
+        _fechar_tela(captura, resultado, args.tela_janela)
     if not args.transcrever:
-        print(f"Para transcrever depois: vatty {resultado.pasta}")
+        print(f"Para transcrever depois: vatty {resultado.pasta}" + (" --visual aula" if com_tela else ""))
         return 0
     args.entrada = str(resultado.pasta)
+    if com_tela:
+        args.visual = "aula"
     return _executar(args)
+
+
+def _fechar_tela(captura, resultado, janela) -> None:
+    """Para o ffmpeg e registra no gravacao.json o horário real de início de cada faixa."""
+    if not captura.parar():
+        print("Aviso: a gravação da tela parou antes do fim (a janela foi fechada?). O que foi gravado fica.")
+    if captura.inicio_aproximado:
+        print("Aviso: o ffmpeg não disse quando gravou o primeiro quadro; os horários dos slides podem errar uns segundos.")
+    inicios = {nome: resultado.inicio for nome in resultado.faixas}
+    inicios["tela"] = captura.inicio
+    gravacao.salvar_metadados(resultado.pasta, {
+        "inicios": inicios,
+        "tela": {"arquivo": tela.ARQUIVO, "alvo": janela or "tela inteira", "fps": tela.FPS,
+                 "inicio_aproximado": captura.inicio_aproximado},
+    })
 
 
 # --- Entrada principal -------------------------------------------------------
@@ -517,11 +579,34 @@ def _concluir(args, comeco, visual_pedido, destino, dados_fonte, resultado) -> i
     gasto = time.perf_counter() - comeco
     print(f"Pronto em {_relogio(gasto)} (texto de {resultado.origem}, {resultado.duracao_s:.0f}s de áudio): {txt.parent}")
     if dados_fonte.get("tipo") == "gravacao":
-        if visual_pedido != "nenhum":
-            print("Aviso: --visual não se aplica a uma gravação de áudio.")
-        _apagar_audio(args, Path(args.entrada))
+        pasta_audio = Path(args.entrada)
+        if _tela_da_gravacao(args, visual_pedido, destino, dados_fonte, pasta_audio):
+            return 1  # a gravação fica inteira, para tentar o visual de novo
+        _apagar_audio(args, pasta_audio)
     elif visual_pedido != "nenhum":
         return _visual(args, destino, dados_fonte)
+    return 0
+
+
+def _tela_da_gravacao(args, visual_pedido, destino: Path, dados_fonte: dict, pasta_audio: Path) -> int:
+    """Gravação com tela.mp4: slides na linha do tempo do áudio, depois apaga a tela (salvo --manter-tela)."""
+    video = pasta_audio / tela.ARQUIVO
+    if not video.is_file():
+        if visual_pedido != "nenhum":
+            print("Aviso: --visual não se aplica a uma gravação só de áudio (sem tela.mp4).")
+        return 0
+    if visual_pedido == "nenhum":
+        print(f"A tela ficou em {video} (para tirar os slides: vatty {pasta_audio} --visual aula).")
+        return 0
+    if _visual(args, destino, dados_fonte, video, tela.deslocamento(dados_fonte.get("inicios"))):
+        print(f"A gravação (áudio e tela) ficou em {pasta_audio}. Para tentar de novo: "
+              f"vatty {pasta_audio} --visual aula", file=sys.stderr)
+        return 1
+    if getattr(args, "manter_tela", False):
+        print(f"Tela guardada em {video}.")
+    else:
+        video.unlink()
+        print("Tela apagada (os slides ficaram no visual.json e em frames/).")
     return 0
 
 
