@@ -235,4 +235,11 @@ compara dois vídeos). Não criar agente novo sem necessidade real.
   com os horários originais, recusando tradução incompleta. **Consulta** (`consulta.md`): responde só com os
   trechos que `acervo.py` escolheu (pontuação por termos, sem embeddings). **Comparador** (`comparador.md`):
   compara duas pastas. O **Escrivão** também faz resumo em níveis quando o briefing pedir.
+  **Perito** (`perito.md`): laudo de quem testou um programa gravando a tela e a voz (`vatty gravar --mic --tela
+  --transcrever`). Cruza a fala (`transcricao.txt`) com as telas paradas (`visual.json`, já na linha do tempo da
+  fala) e escreve `pericia-<assunto>.md`: bugs (evidência, gravidade, certeza `visto`/`dito`/`suposto`), lentidão,
+  atrito, comportamento observado (ação -> resposta, útil para engenharia reversa) e passos para reproduzir o
+  bug mais grave. Abre no máximo 6 quadros de `frames/`, esconde senha e token (`[oculto]`) e não ensina a burlar
+  proteção. Limite conhecido: a 2 quadros/s e só com telas paradas, aviso rápido (toast) e animação escapam.
+  Sem código novo: o Perito só lê o que a gravação já produz.
   Agente novo só aparece depois de reiniciar a sessão do Claude Code.

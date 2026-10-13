@@ -287,7 +287,22 @@ vatty traduzir montar transcricoes/aula --para en     # legenda.en.srt com os ho
 ```
 
 O código escolhe e formata; o agente só escreve o que exige julgamento. Para os agentes (Cartas, Tradutor,
-Consulta, Comparador) peça pela conversa do Claude Code, que cuida do briefing.
+Consulta, Comparador, Perito) peça pela conversa do Claude Code, que cuida do briefing.
+
+### Testar um programa e achar bugs: o Perito
+
+Grave você usando o programa, falando o que espera e o que estranha ("cliquei em salvar e nada"):
+
+```bash
+vatty gravar --mic --tela --transcrever          # ou --tela-janela "Nome do app"
+```
+
+Depois peça ao **Perito** pela conversa do Claude Code. Ele cruza o que você disse com o que a tela mostrou e
+escreve `pericia-<assunto>.md` na pasta do vídeo: bugs (com horário, evidência, gravidade e se foi visto na tela,
+só dito ou suposto), onde você esperou, passos repetidos, o comportamento do programa (ação -> resposta, bom para
+engenharia reversa) e os passos para reproduzir o bug mais grave. Senha e token que aparecerem na tela viram
+`[oculto]`. A tela é gravada a 2 quadros por segundo e só as telas que ficam paradas viram slide: um aviso que
+some em menos de 1 s pode escapar. Funciona também só com áudio, mas aí tudo vem da fala.
 
 ### Lote e playlist: `vatty lote`
 

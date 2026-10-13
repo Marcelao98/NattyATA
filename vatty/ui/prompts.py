@@ -21,6 +21,10 @@ MODELOS = {
     "explicar": ("Explicar com calma", "Explique o conteúdo de forma didática, na ordem em que se aprende: pré-requisitos, "
                                        "intuição antes da fórmula, exemplos e exercícios com resposta. Marque o que é "
                                        "acréscimo seu e o que veio da transcrição."),
+    "pericia": ("Achar bugs", "Esta é a gravação de alguém testando um programa. Liste, com horário e evidência: bugs "
+                              "(gravidade alta, média ou baixa), onde a pessoa esperou, passos repetidos e o "
+                              "comportamento do programa (ação -> resposta). No fim, os passos para reproduzir o bug "
+                              "mais grave. Não copie senha, token nem dado pessoal: escreva [oculto]."),
 }
 LIMITE_CARACTERES = 400_000
 

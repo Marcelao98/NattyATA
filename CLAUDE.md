@@ -64,6 +64,7 @@ duas metades compartilham:
 | `traducao-<lang>-entrada.txt`, `traducao-<lang>.txt`, `legenda.<lang>.srt` | código, Tradutor, código | `N\|texto`; `vatty traduzir preparar/montar`; o código recusa tradução com bloco faltando |
 | `_consultas/<pergunta>/trechos.md`, `resposta.md` | código, Consulta | `vatty perguntar` escolhe os trechos; o agente responde só com eles |
 | `_comparacoes/comparacao-<a>-<b>.md` | Comparador | só o agente, lendo duas pastas |
+| `pericia-<assunto>.md` | Perito | laudo de uma gravação de teste de programa (de preferência com `--tela`): seções `## Resumo/Bugs/Lentidão e espera/Atrito/Comportamento observado/Para reproduzir/Dúvidas`; bug como `[mm:ss] o que \| evidência \| gravidade \| certeza` |
 | `ata-<assunto>.docx`, `.pdf` | Ata (código) | `vatty ata <pasta>`: cabeçalho (data, duração, participantes) vindo de `fonte.json`/`falantes.json`, mais o `.md` do agente, com `Pessoa N` trocada pelos nomes dados |
 
 `origem` diz de onde veio o texto: `legenda-manual`, `legenda-automatica` ou
@@ -140,6 +141,8 @@ Regra: **testar comportamento, não linhas.** Pouco teste bom vale mais que muit
 10. Gravação da tela junto com o áudio (`vatty gravar --tela`, Windows) → visual na linha do tempo da fala.
     **(feito, falta confirmar a captura e a sincronia num Windows real)** Fora por enquanto: pausar,
     Mac/Linux, botão na interface, print "no momento da fala".
+11. Perito: laudo de teste de programa (bugs, lentidão, atrito, comportamento) a partir da gravação
+    com tela. **(feito; nunca rodado de verdade)**
 
 ## Comandos
 

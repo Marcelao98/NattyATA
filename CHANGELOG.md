@@ -13,6 +13,9 @@ Gravação da tela junto com o áudio, para aula e reunião com slides.
 - Com `--transcrever`, o `tela.mp4` passa pelo `--visual aula` e é apagado; `--manter-tela` guarda. Se o visual
   falhar, o texto fica salvo, a gravação inteira fica para tentar de novo e a CLI sai com código 1.
 - Gravação sem tela continua igual (sem `gravacao.json`, `fonte.json` sem campos novos).
+- Agente novo **Perito** (`.claude/agents/perito.md`): laudo de teste de programa a partir da gravação com tela
+  (`pericia-<assunto>.md`: bugs com evidência, gravidade e certeza, lentidão, atrito, comportamento observado e
+  passos para reproduzir). "Copiar prompt" da interface ganhou o modelo "Achar bugs". Nunca rodado de verdade.
 - 512 testes (eram 493).
 - **Não verificado em PC real**: a captura da tela com o ffmpeg de verdade e a sincronia com áudio real só
   rodam no Windows; aqui tudo foi provado com dublês. Passo a passo em `docs/testes-reais.md`.

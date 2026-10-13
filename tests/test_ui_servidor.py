@@ -148,7 +148,7 @@ class TestRevisaoNaApi(Base):
         self.assertIn("Ana: oi Nattie", corpo["prompt"])
         self.assertIn("aviso", corpo)
         self.assertEqual(self.chamar("/api/video/aula/prompt?tipo=zzz")[0], 400)
-        self.assertEqual(len(json.loads(self.chamar("/api/prompts")[1])), 5)
+        self.assertEqual(len(json.loads(self.chamar("/api/prompts")[1])), 6)
 
 
 class TestTerminal(unittest.TestCase):

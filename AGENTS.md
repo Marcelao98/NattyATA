@@ -44,3 +44,4 @@ um número ou um "peraí, isso eu não falei".
 | Tradutor | legenda traduzida | `.claude/agents/tradutor.md` |
 | Consulta | responde perguntas sobre o acervo | `.claude/agents/consulta.md` |
 | Comparador | compara dois vídeos | `.claude/agents/comparador.md` |
+| Perito | laudo de teste de programa: bugs, lentidão, atrito, comportamento | `.claude/agents/perito.md` |
