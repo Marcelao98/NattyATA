@@ -159,6 +159,34 @@ mais de tempo, mas evita trechos curtos com horário de silêncio.
 - **Consentimento:** gravar uma conversa sem avisar os outros participantes
   pode ser ilegal onde você mora. A Vatty lembra disso ao começar.
 
+### Gravar a tela junto (Windows)
+
+Para aula ou reunião com slides: grava o som do PC, o microfone e a tela, e
+no fim os slides lidos pelo OCR caem no mesmo `[mm:ss]` da fala.
+
+```bash
+vatty gravar --mic --tela --transcrever                    # tela inteira
+vatty gravar --mic --tela-janela "Reunião - Zoom" --transcrever   # só essa janela (título exato)
+vatty gravar --tela --transcrever --manter-tela            # guarda o tela.mp4 no fim
+```
+
+- Precisa do ffmpeg no PATH e, para os slides, do Tesseract (o mesmo do `--visual`).
+- A tela vai para `tela.mp4` na pasta da gravação: 2 quadros por segundo, sem
+  som, no máximo 1280 px de largura. O áudio segue o caminho de sempre.
+- **Privacidade:** a tela pode mostrar senha, notificação e conversa de outras
+  pessoas. A Vatty avisa antes de começar; feche o que não deve aparecer. A
+  imagem fica só no seu PC.
+- **Sincronia:** cada faixa guarda o horário real em que começou
+  (`gravacao.json`); o visual é deslocado pela diferença. A precisão esperada
+  é de meio segundo a um segundo (o intervalo entre quadros).
+- Com `--transcrever`, o `tela.mp4` passa pelo `--visual aula` (`visual.json` e
+  `frames/`) e depois é apagado, porque a Vatty não guarda mídia; `--manter-tela`
+  guarda. Se o visual falhar, o texto já está salvo, a gravação inteira fica
+  na pasta para tentar de novo (`vatty gravacoes/<pasta> --visual aula`) e a
+  CLI sai com código 1.
+- Sem `--transcrever`, a tela fica guardada e a Vatty mostra o comando para
+  depois.
+
 ### TikTok e outras plataformas
 
 A URL vai direto, como no YouTube. O TikTok quase nunca tem legenda, então a Vatty baixa o áudio e usa o Whisper:

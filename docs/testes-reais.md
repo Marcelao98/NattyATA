@@ -6,6 +6,49 @@ com o mundo real. Uma entrada por teste, a mais nova em cima.
 
 ---
 
+## A fazer — Gravação da tela com o áudio (0.16.0, ainda não rodado)
+
+Feito e testado só com dublês. Precisa de um Windows com ffmpeg e Tesseract no PATH e o extra
+`[gravacao]`. Anotar o resultado de cada passo aqui, numa entrada nova com a data.
+
+**1. A tela grava e para direito (1 min).**
+`vatty gravar --tela --duracao 20`. Deixe uma janela com texto grande na tela.
+- Aparece o aviso de privacidade e a linha `tela: tela inteira (2 quadros por segundo)`?
+- A pasta `gravacoes/<data>/` tem `sistema.wav`, `tela.mp4` e `gravacao.json`?
+- O `tela.mp4` abre no player, tem uns 20 s e o texto dá para ler?
+- Anotar: tamanho do `tela.mp4` (MB por minuto), resolução, se apareceu o aviso
+  "o ffmpeg não disse quando gravou o primeiro quadro" (`inicio_aproximado: true` no `gravacao.json`).
+
+**2. Ctrl+C no meio.** `vatty gravar --tela` e pare com Ctrl+C depois de uns 30 s.
+- O `tela.mp4` fecha e abre no player? (o ffmpeg não pode morrer junto com o Ctrl+C)
+- Sobrou algum `ffmpeg.exe` rodando no Gerenciador de Tarefas? Não pode sobrar.
+
+**3. Uma janela só.** `vatty gravar --tela-janela "<título exato>" --duracao 20` (ex.: o PowerPoint).
+- Grava só a janela? E com um título que não existe, a CLI dá erro claro e não deixa pasta vazia?
+- Feche a janela no meio da gravação: aparece "a gravação da tela parou antes do fim"?
+
+**4. Sincronia (o mais importante).** Um vídeo ou slides com troca em horários conhecidos e fala
+junto, por exemplo um vídeo do YouTube com slides em tela cheia, ou você trocando slides e dizendo
+"slide dois" na hora da troca: `vatty gravar --mic --tela --transcrever --manter-tela --manter-audio`
+por 3 a 5 minutos.
+- Para 5 trocas de slide, compare o `inicio` no `visual.json` com o `[mm:ss]` da fala que anuncia a troca no
+  `transcricao.txt`. Anotar a diferença de cada uma (o esperado é até ~1 s).
+- Anotar o `sincronia.deslocamento_s` do `visual.json` e os `inicios` do `gravacao.json`. O deslocamento
+  esperado é negativo e pequeno (a tela abre antes do áudio, uns 0,5 a 2 s).
+- Se a diferença for constante (todas adiantadas ou atrasadas no mesmo tanto), a conta do início da tela está
+  errada; se crescer com o tempo, é deriva do relógio (anotar a diferença no começo e no fim).
+
+**5. Limpeza.** Repetir o passo 4 sem `--manter-tela` e com `--apagar-audio`.
+- No fim, a pasta da gravação sumiu e a pasta do vídeo tem `visual.json` e `frames/`?
+
+**6. Falha do visual.** Tire o Tesseract do PATH só nesse terminal e rode `vatty gravar --tela --transcrever --duracao 20`.
+- A CLI sai com código 1, o texto fica salvo e a pasta da gravação (áudio e tela) continua lá?
+- Ponha o Tesseract de volta e rode o comando que ela sugeriu (`vatty gravacoes/<pasta> --visual aula`).
+
+**7. Peso.** Durante o passo 4, olhar o uso de CPU do `ffmpeg.exe` e se o áudio falhou ou picotou.
+
+---
+
 ## 2026-10-12 — Vídeo curto do TikTok (51 s, vertical, legenda animada na tela)
 
 **Comando:** `vatty <arquivo>.mp4 --visual aula --falantes auto --preprocessar nao --lang pt`
