@@ -40,6 +40,12 @@ terminal, a CLI pede `aula` ou `nenhum`). URL baixa só a imagem, até 720p
 quadros, 0,5% de tela mudada, 10x10 de bloco, teto de 300 slides, 8 palavras
 no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
 
+Em gravação com tela (`vatty gravar --tela --transcrever`, ou `vatty
+gravacoes/<pasta> --visual aula` depois), o vídeo é o `tela.mp4` da pasta da
+gravação, os horários dos slides passam por `tela.sincronizar` e o `tela.mp4` é
+apagado no fim (`--manter-tela` guarda). Se o visual falhar, nada da gravação é
+apagado, para tentar de novo.
+
 ### Camada de código (`vatty/`)
 
 - `fonte.py`: URL de vídeo (YouTube, TikTok, o que o `yt-dlp` suportar) → `fonte.json`, legendas
@@ -60,7 +66,19 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
   teste automático; o resto recebe as entradas por parâmetro. Também junta as
   duas faixas transcritas num resultado só, com `falante` e a lista `faixas`.
   Em gravação o motor liga o horário por palavra (`word_timestamps`): o início
-  e o fim do trecho valem da primeira à última palavra.
+  e o fim do trecho valem da primeira à última palavra. `Gravacao.inicio` é o
+  horário real (relógio do sistema) em que o relógio das faixas começou; com
+  `--tela` ele vai para o `gravacao.json` da pasta (`salvar_metadados`/`ler_metadados`).
+- `tela.py`: grava a tela com o ffmpeg em segundo plano (`gdigrab`, só Windows,
+  2 quadros/s, sem áudio, até 1280 px, x264 `ultrafast` + `zerolatency`, mp4
+  fragmentado para sobreviver a uma queda). O ffmpeg roda num grupo de processo
+  próprio (o Ctrl+C da gravação não o derruba) e para com `q` no stdin. O
+  horário real do primeiro quadro vem do `-progress` (horário do relatório menos
+  o `out_time` já escrito); sem relatório em 10 s, fica o horário em que abriu
+  (`inicio_aproximado`). A tela abre **antes** do áudio: o áudio aberto antes
+  acumularia a espera do ffmpeg. `deslocamento` (início da tela menos o do
+  áudio) e `sincronizar` (soma aos eventos do visual, corta no zero) são puros.
+  A captura real não tem teste automático (ver `docs/testes-reais.md`).
 - `quadros.py`: vídeo → quadros via ffmpeg: um quadro pequeno em cinza a cada
   intervalo (em fluxo, nunca vai ao disco) e a extração de um quadro JPG em
   boa qualidade num horário.
@@ -105,7 +123,8 @@ no palpite) foram medidos só em vídeo sintético: ajustar com vídeo real.
   por vez (`por_canal`), `formatar_canal` (`[mm:ss]` por parágrafo) e
   `linha_do_tempo`.
 - `cli.py`: casca fina. `vatty <url-arquivo-ou-pasta-de-gravacao>` produz a pasta
-  do vídeo; `vatty gravar` grava (e com `--transcrever` já transcreve). Depois de
+  do vídeo; `vatty gravar` grava (e com `--transcrever` já transcreve; com `--tela`
+  ou `--tela-janela`, avisa da privacidade e grava a tela também). Depois de
   transcrever uma gravação, pergunta se apaga os `.wav` (padrão: guardar).
 
 ### Camada de agentes (`.claude/agents/`)

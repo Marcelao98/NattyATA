@@ -18,6 +18,7 @@ A captura real (`abrir_entradas`) é a única parte que toca a placa de som; o
 resto recebe as entradas por parâmetro, e os testes passam dublês.
 """
 
+import json
 import queue
 import sys
 import time
@@ -40,6 +41,9 @@ FAIXAS = tuple(FALANTES)  # ordem fixa: sistema primeiro
 # Pico (0 a 1) abaixo disso: a faixa ficou praticamente muda.
 PICO_MUDO = 0.005
 
+# Metadados da gravação (só com --tela): o horário real de início de cada faixa, para a sincronia.
+METADADOS = "gravacao.json"
+
 
 class ErroGravacao(Exception):
     """Falha ao preparar ou fazer a gravação (mensagem para o usuário)."""
@@ -51,6 +55,7 @@ class Gravacao:
     duracao_s: float
     faixas: dict = field(default_factory=dict)  # nome -> caminho do .wav
     picos: dict = field(default_factory=dict)   # nome -> maior amplitude (0 a 1)
+    inicio: float | None = None                 # horário real (relógio do sistema) do começo das faixas
 
     def faixas_mudas(self) -> list:
         return [nome for nome, pico in self.picos.items() if pico < PICO_MUDO]
@@ -128,13 +133,14 @@ class _Faixa:
 
 
 def gravar(entradas, pasta, *, duracao_max=None, relogio=time.monotonic, dormir=time.sleep,
-           progresso=None) -> Gravacao:
+           progresso=None, agora=time.time) -> Gravacao:
     """
     Grava até `duracao_max` segundos ou até Ctrl+C (KeyboardInterrupt), o que vier
     primeiro. `entradas` é uma lista de objetos com `nome`, `taxa`, `canais`,
     `pegar()` (bytes int16 que chegaram, sem bloquear) e `fechar()`. Os .wav
     ficam em `pasta`, um por entrada. `progresso(decorrido_s, {nome: pico})`
-    é chamado a cada passo.
+    é chamado a cada passo. `inicio` do resultado é o horário real (`agora()`) em
+    que o relógio das faixas começou: todas as faixas de áudio partem dele juntas.
     """
     pasta = Path(pasta)
     pasta.mkdir(parents=True, exist_ok=True)
@@ -154,7 +160,7 @@ def gravar(entradas, pasta, *, duracao_max=None, relogio=time.monotonic, dormir=
         if progresso:
             progresso(decorrido, niveis)
 
-    inicio = relogio()
+    inicio_real, inicio = agora(), relogio()
     try:
         while True:
             dormir(PASSO_S)
@@ -174,6 +180,7 @@ def gravar(entradas, pasta, *, duracao_max=None, relogio=time.monotonic, dormir=
         duracao_s=escritas / TAXA,
         faixas={nome: f.caminho for nome, f in faixas.items()},
         picos={nome: f.pico for nome, f in faixas.items()},
+        inicio=inicio_real,
     )
 
 
@@ -185,6 +192,19 @@ def pasta_nova(raiz, nome: str) -> Path:
         n += 1
         candidata = raiz / f"{nome}-{n}"
     return candidata
+
+
+def salvar_metadados(pasta, dados: dict) -> Path:
+    """Escreve o gravacao.json da pasta da gravação."""
+    destino = Path(pasta) / METADADOS
+    destino.write_text(json.dumps(dados, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return destino
+
+
+def ler_metadados(pasta) -> dict:
+    """O gravacao.json da pasta, ou {} se não houver (gravação só de áudio, ou de antes da 0.16.0)."""
+    arquivo = Path(pasta) / METADADOS
+    return json.loads(arquivo.read_text(encoding="utf-8")) if arquivo.is_file() else {}
 
 
 def faixas_na_pasta(pasta) -> dict:
