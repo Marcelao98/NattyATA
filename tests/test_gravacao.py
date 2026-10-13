@@ -90,6 +90,10 @@ class TestGravar(unittest.TestCase):
     def gravar(self, entradas, **opcoes):
         return gravacao.gravar(entradas, self.pasta, relogio=self.relogio, dormir=self.relogio.dormir, **opcoes)
 
+    def test_guarda_o_horario_real_do_comeco(self):
+        g = self.gravar([EntradaFalsa(self.relogio)], duracao_max=1.0, agora=lambda: 1760000000.5)
+        self.assertEqual(g.inicio, 1760000000.5)
+
     def test_para_na_duracao_pedida_e_escreve_wav_16k_mono(self):
         e = EntradaFalsa(self.relogio)
         g = self.gravar([e], duracao_max=3.0)
@@ -161,6 +165,13 @@ class TestPastas(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "microfone.wav").write_bytes(b"")
             self.assertEqual(list(gravacao.faixas_na_pasta(tmp)), ["microfone"])
+
+    def test_metadados_ida_e_volta_e_pasta_sem_eles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(gravacao.ler_metadados(tmp), {})  # gravação só de áudio
+            dados = {"inicios": {"sistema": 100.0, "tela": 98.5}}
+            gravacao.salvar_metadados(tmp, dados)
+            self.assertEqual(gravacao.ler_metadados(tmp), dados)
 
 
 class TestJuntarFaixas(unittest.TestCase):

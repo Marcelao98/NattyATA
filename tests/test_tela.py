@@ -1,0 +1,123 @@
+import io
+import unittest
+
+from vatty import tela
+
+
+class FfmpegFalso:
+    """Popen falso: `progresso` são as linhas do -progress; `vivo` diz se ele continua rodando."""
+
+    def __init__(self, progresso=(), vivo=True, erro=b""):
+        self.stdout = io.BytesIO(b"".join(linha + b"\n" for linha in progresso))
+        self.stderr = io.BytesIO(erro)
+        self.stdin = self
+        self.escrito = b""
+        self.vivo = vivo
+        self.comando = None
+        self.pediu_q = False
+
+    def __call__(self, comando, **opcoes):
+        self.comando = comando
+        return self
+
+    def write(self, dados):
+        self.escrito += dados
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass
+
+    def poll(self):
+        return None if self.vivo else 1
+
+    def wait(self, timeout=None):
+        self.pediu_q = self.escrito == b"q"
+        self.vivo = False
+
+    def kill(self):
+        self.vivo = False
+
+
+def _abrir(ffmpeg, **kw):
+    opcoes = {"abrir": ffmpeg, "achar": lambda nome: "ffmpeg", "agora": lambda: 1000.0,
+              "plataforma": "win32", "espera_inicio": 0, **kw}
+    return tela.CapturaTela("g/tela.mp4", **opcoes)
+
+
+class TestComando(unittest.TestCase):
+    def test_tela_inteira_2_quadros_por_segundo_sem_audio(self):
+        c = tela.comando("ffmpeg", "g/tela.mp4")
+        self.assertEqual(c[c.index("-f") + 1], "gdigrab")
+        self.assertEqual(c[c.index("-framerate") + 1], "2")
+        self.assertEqual(c[c.index("-i") + 1], "desktop")
+        self.assertIn("-an", c)
+        self.assertEqual(c[-1], "g/tela.mp4")
+
+    def test_janela_pelo_titulo(self):
+        c = tela.comando("ffmpeg", "g/tela.mp4", janela="Aula - Zoom")
+        self.assertEqual(c[c.index("-i") + 1], "title=Aula - Zoom")
+
+    def test_ler_progresso(self):
+        self.assertEqual(tela.ler_progresso("out_time_us=1500000\n"), 1.5)
+        self.assertIsNone(tela.ler_progresso("out_time_us=N/A"))
+        self.assertIsNone(tela.ler_progresso("out_time_us=0"))  # nenhum quadro ainda
+        self.assertIsNone(tela.ler_progresso("frame=3"))
+
+
+class TestSincronia(unittest.TestCase):
+    def test_deslocamento_e_o_inicio_da_tela_menos_o_do_audio(self):
+        inicios = {"sistema": 100.0, "microfone": 100.0, "tela": 98.5}
+        self.assertEqual(tela.deslocamento(inicios), -1.5)
+        self.assertEqual(tela.deslocamento({"sistema": 100.0}), 0.0)  # sem tela
+        self.assertEqual(tela.deslocamento(None), 0.0)
+
+    def test_sincronizar_desloca_corta_no_zero_e_tira_o_que_acabou_antes(self):
+        dados = {"perfil": "aula", "eventos": [
+            {"tipo": "slide", "inicio": 0.0, "fim": 1.0, "texto": "antes", "frame": "frames/0001.jpg"},
+            {"tipo": "slide", "inicio": 1.0, "fim": 10.0, "texto": "capa", "frame": "frames/0002.jpg"},
+            {"tipo": "slide", "inicio": 10.0, "fim": 20.0, "texto": "agenda", "frame": "frames/0003.jpg"},
+        ]}
+        saida = tela.sincronizar(dados, -1.5)
+        self.assertEqual([(e["texto"], e["inicio"], e["fim"]) for e in saida["eventos"]],
+                         [("capa", 0.0, 8.5), ("agenda", 8.5, 18.5)])
+        self.assertEqual(saida["sincronia"], {"deslocamento_s": -1.5})
+        self.assertEqual(saida["perfil"], "aula")
+        self.assertEqual(tela.sincronizar(dados, 2.0)["eventos"][0]["inicio"], 2.0)
+
+
+class TestCaptura(unittest.TestCase):
+    def test_so_no_windows_e_com_ffmpeg(self):
+        with self.assertRaisesRegex(tela.ErroTela, "Windows"):
+            _abrir(FfmpegFalso(), plataforma="linux")
+        with self.assertRaisesRegex(tela.ErroTela, "ffmpeg"):
+            _abrir(FfmpegFalso(), achar=lambda nome: None)
+
+    def test_inicio_vem_do_progresso_e_parar_pede_q(self):
+        ffmpeg = FfmpegFalso([b"frame=1", b"out_time_us=N/A", b"out_time_us=500000", b"out_time_us=1000000"])
+        captura = _abrir(ffmpeg, espera_inicio=5)
+        self.assertEqual(captura.inicio, 999.5)  # relatório às 1000.0 com 0,5 s de vídeo escrito
+        self.assertFalse(captura.inicio_aproximado)
+        self.assertTrue(captura.parar())
+        self.assertTrue(ffmpeg.pediu_q)
+
+    def test_ffmpeg_que_fecha_logo_vira_erro_com_a_mensagem_dele(self):
+        ffmpeg = FfmpegFalso(vivo=False, erro=b"Can't find window 'Aula', aborting.")
+        with self.assertRaisesRegex(tela.ErroTela, "Can't find window.*está aberta"):
+            _abrir(ffmpeg, janela="Aula")
+
+    def test_sem_progresso_fica_o_horario_em_que_abriu(self):
+        captura = _abrir(FfmpegFalso())
+        self.assertEqual(captura.inicio, 1000.0)
+        self.assertTrue(captura.inicio_aproximado)
+
+    def test_parar_diz_se_o_ffmpeg_ja_tinha_parado_sozinho(self):
+        ffmpeg = FfmpegFalso([b"out_time_us=500000"])
+        captura = _abrir(ffmpeg, espera_inicio=5)
+        ffmpeg.vivo = False  # a janela foi fechada no meio
+        self.assertFalse(captura.parar())
+
+
+if __name__ == "__main__":
+    unittest.main()
